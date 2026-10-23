@@ -76,7 +76,7 @@ READY FOR USER LIVE TEST
 
 Reason: the clarified objective requires a model store, generic model profiling, tokenizer, KV-backed generation, sampling, performance work, multi-family compatibility, and real text-generation UI/API.
 
-## Exact Next Chunk — P9A User Model Store + Ledger
+## Completed Developer Chunk — P9A User Model Store + Ledger — 2026-10-23
 
 Authoritative user-visible model root:
 
@@ -103,6 +103,20 @@ Implement:
 9. update public capability/status only to claims actually implemented.
 
 Do not implement tokenizer/generation/UI redesign in this chunk.
+
+### P9A evidence
+
+- source-verified: `IO/UserFile.lua` validates model-root-relative paths and uses only the supported `getFileInput("Models/...")` adapter; packaged `GameFile` remains separate;
+- source-verified: `Models/ModelStore.lua` parses one path per nonblank/non-comment ledger line, preserves invalid and missing entries, handles duplicates deterministically, and performs no ONNX graph parsing during refresh;
+- source-verified: public `refreshModels()`, `listModels()`, `getModelEntry()`, and diagnostics are exposed through `PZONNX`;
+- host/reference verified: focused P9A tests cover path safety, normalization, duplicates, missing entries, bounded text reading, and lazy existence checks;
+- source-verified: bounded `P9AProbe` reports ledger status/counts at `OnGameStart` without loading model graphs;
+- validation: all existing host tests, P9A tests, Lua syntax checks, `git diff --check`, and PZ Kahlua compatibility checks pass;
+- open native gate: the stock-PZ user ledger probe and sliced real-model responsiveness/cancellation still require live evidence; no PZ runtime acceptance is claimed.
+
+## Exact Next Chunk — P9B ModelPackage
+
+Implement a lazy model-package abstraction over a registered P9A entry. It must resolve the user model root safely, expose package-relative companion metadata/data paths without directory enumeration, distinguish the primary ONNX file from optional external data/tokenizer/config files, and preserve missing/invalid diagnostics. Add focused host tests and a bounded native package probe. Do not parse every registered model or claim model profiling/generation yet.
 
 ## Following chunks
 

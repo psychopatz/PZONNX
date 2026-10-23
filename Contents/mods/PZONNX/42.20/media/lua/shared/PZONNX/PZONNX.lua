@@ -9,6 +9,7 @@ local P5Probe = require "PZONNX/Diagnostics/P5Probe"
 local P6Probe = require "PZONNX/Diagnostics/P6Probe"
 local P7Probe = require "PZONNX/Diagnostics/P7Probe"
 local P8Probe = require "PZONNX/Diagnostics/P8Probe"
+local P9AProbe = require "PZONNX/Diagnostics/P9AProbe"
 local TinyTTS = require "PZONNX/Adapters/TinyTTS"
 local Model = require "PZONNX/ONNX/Model"
 local Session = require "PZONNX/Runtime/Session"
@@ -17,10 +18,12 @@ local OperatorRegistry = require "PZONNX/Runtime/OperatorRegistry"
 local TinyLM = require "PZONNX/Adapters/TinyLM"
 local InferenceJob = require "PZONNX/Runtime/InferenceJob"
 local Fallback = require "PZONNX/Adapters/Fallback"
+local UserFile = require "PZONNX/IO/UserFile"
+local ModelStore = require "PZONNX/Models/ModelStore"
 
 local PZONNX = {
     VERSION = "0.0.1",
-    PHASE = "P8",
+    PHASE = "P9A",
     Log = Log,
 }
 
@@ -52,6 +55,10 @@ function PZONNX.getCapabilities()
         p7Probe = true,
         fallbackBoundary = true,
         p8Probe = true,
+        userFileAdapter = true,
+        modelStore = true,
+        modelLedger = true,
+        p9aProbe = true,
         p2Probe = true,
         llm = false,
         tts = false,
@@ -96,6 +103,26 @@ end
 
 function PZONNX.runP8Probe()
     return P8Probe.run()
+end
+
+function PZONNX.runP9AProbe()
+    return P9AProbe.run()
+end
+
+function PZONNX.refreshModels()
+    return ModelStore.refresh()
+end
+
+function PZONNX.listModels()
+    return ModelStore.listModels()
+end
+
+function PZONNX.getModelEntry(idOrPath)
+    return ModelStore.getModelEntry(idOrPath)
+end
+
+function PZONNX.getModelDiagnostics()
+    return ModelStore.getDiagnostics()
 end
 
 function PZONNX.loadModel(relativePath)
@@ -147,5 +174,7 @@ PZONNX.TinyLM = TinyLM
 PZONNX.InferenceJob = InferenceJob
 PZONNX.TinyTTS = TinyTTS
 PZONNX.Fallback = Fallback
+PZONNX.UserFile = UserFile
+PZONNX.ModelStore = ModelStore
 
 return PZONNX
