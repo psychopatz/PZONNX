@@ -2,180 +2,212 @@
 
 Status: **experimental — active**
 
-The roadmap is one parent implementation assignment. Completing a phase does not complete the parent goal. The agent should continue through all developer-implementable mandatory phases without waiting for a new `/goal`.
+## Phase history
 
-See `PZONNX_ACCEPTANCE.md` for the evidence-lane and non-blocking-native-gate rules.
+P0-P8 established the first execution foundation:
 
-## P0 — Binary and protobuf foundation
+- P0 binary/protobuf and real ONNX parsing;
+- P1 model indexing/compatibility;
+- P2/P3 graph/operator execution;
+- P4 transformer-style fixture;
+- P5 one-token tiny-LM fixture;
+- P6 resumable/quantized execution;
+- P7 numeric TTS fixture;
+- P8 public/fallback integration surface.
 
-Goal: establish byte-correct binary input and the protobuf primitives needed to parse real ONNX files.
+A later real-model probe executed a 408-node quantized tiny-LLM ONNX graph in host Lua and produced reference-consistent next-token evidence. Native testing then exposed main-thread stalls; MatMul/MatMulInteger now have resumable kernel state.
 
-### P0A — packaged binary path
+These are preserved foundation, **not parent-goal completion**.
 
-Acceptance:
+The prior "P8 complete / only live testing remains" roadmap conclusion is superseded by the clarified objective: a model-agnostic generative inference runtime.
 
-- Build 42.20 mod loads;
-- deterministic binary fixture exists;
-- byte reads, offsets, varints, fixed32, float32, and length-delimited fields are implemented;
-- malformed/truncated fields fail explicitly;
-- unknown protobuf fields can be skipped safely;
-- a bounded in-game probe exists.
+## P9 — Model Store & Model-Agnostic Discovery
 
-Current status: **source implemented; native PZ runtime evidence open**.
+Goal: make user-supplied models discoverable without filesystem enumeration or source-code edits.
 
-The open P0A native gate does not prevent developer-side P0B work.
+### P9A — user model store + ledger
 
-### P0B — real ONNX top-level parse
+Authoritative user location:
 
-Acceptance:
-
-- development tooling generates a genuine minimal ONNX fixture;
-- PZONNX parses enough ModelProto structure to identify IR version, producer metadata, opset imports, and graph envelope;
-- trusted external inspection agrees with those values;
-- unknown fields remain skippable;
-- truncation/malformed input produces actionable errors;
-- a PZ runtime probe exists for the same fixture.
-
-P0 is fully accepted only when the required native evidence is eventually captured, but developer work may continue while native gates remain open.
-
-## P1 — ONNX model loading and compatibility inspection
-
-Goal: parse the subset of ModelProto, GraphProto, NodeProto, TensorProto, AttributeProto, ValueInfoProto, and opset imports required by actual target fixtures/models.
+```text
+Zomboid/Lua/Models/
+Zomboid/Lua/Models/ledger.txt
+```
 
 Acceptance:
 
-- graph inputs/outputs/nodes/initializers are represented;
-- tensor metadata and raw-data locations are correct;
-- loader emits an operator/opset/datatype inventory;
-- unsupported features report actionable errors;
-- trusted external inspection agrees with the loaded graph metadata;
-- large initializers are indexed/lazy where needed rather than blindly expanded into boxed Lua scalars;
-- bounded PZ runtime probe exists.
+- separate user-file IO adapter from packaged fixture IO;
+- ledger reads one relative model entry path per nonblank/non-comment line;
+- traversal, absolute paths, drive/network paths, and root escape are rejected;
+- missing/invalid entries remain visible individually and do not abort registry refresh;
+- registry startup is lightweight and does not parse all ONNX models;
+- public refresh/list/get entry APIs exist;
+- host tests and bounded PZ probe cover ledger parsing and path safety.
 
-## P2 — tiny graph execution
-
-Goal: execute a genuine small ONNX neural network in Kahlua.
-
-Initial target: a linear graph such as `MatMul -> Add`.
+### P9B — ModelPackage
 
 Acceptance:
 
-- input tensor supplied through a PZONNX Session-like public API;
-- required initializer values decode correctly;
-- graph executes through PZONNX operator code only;
-- result matches ONNX Runtime reference within documented tolerance;
-- no native/custom-Java/external inference path is involved;
-- a bounded in-game execution probe exists.
+- entry file defines package root;
+- known config/tokenizer companion files can be probed without directory enumeration;
+- multiple ONNX entry conventions can be represented;
+- external tensor file paths are resolved relative to the package/model under strict root safety;
+- package metadata remains lazy.
 
-This is the first hard end-to-end inference proof.
-
-## P3 — reusable operator runtime
-
-Goal: move from a one-off graph to reusable tensor/operator infrastructure.
-
-Operator support is earned from real exported model requirements, not speculative breadth.
-
-Likely families include:
-
-- elementwise/broadcast arithmetic;
-- MatMul/Gemm;
-- Gather;
-- Reshape/Transpose/Concat/Slice;
-- Softmax;
-- Cast;
-- reductions;
-- normalization;
-- activation functions.
+### P9C — ModelProfile
 
 Acceptance:
 
-- operator registry declares supported opset/type/attribute combinations;
-- deterministic shape/broadcast semantics;
-- focused fixture matrix per supported path;
-- explicit rejection of unsupported combinations;
-- reusable/bounded scratch buffers;
-- compatibility report accurately predicts whether the selected model can execute.
+- profile identifies task/generation shape where evidence supports it;
+- input/output roles are mapped without TinyLLM-specific source edits;
+- profile records logits, attention/position inputs, cache patterns, layer/cache counts where derivable;
+- special-token/context/vocab metadata is captured when available;
+- detection source/confidence/missing fields are explicit;
+- incompatible models remain inspectable.
 
-## P4 — transformer coverage
-
-Goal: support the exact exported ONNX graph of one selected tiny transformer.
+### P9D — generic model probe
 
 Acceptance:
 
-- selected model/export is frozen and documented;
-- operator inventory is recorded;
-- every required operator/type path has focused reference fixtures;
-- one forward pass reaches logits matching the trusted reference;
-- initial context length is deliberately bounded;
-- tokenizer/model adapter remains separate from the generic runtime;
-- memory behavior is measured honestly.
+- one generic probe can inspect an arbitrary ledger-selected model and emit parse/profile/compatibility/input-output evidence;
+- TinyLLM is only one regression target;
+- at least one second structurally different decoder export is inspected without adding a model-specific adapter.
 
-## P5 — tiny LLM one-token proof
+## P10 — ONNX Compliance Expansion & Model Package IO
 
-Goal: produce one correct next token from a selected tiny model inside PZONNX.
+Goal: close generic execution gaps exposed by real model profiles.
 
-Candidate target: a TinyStories-class model around 15M parameters, subject to actual export/operator/memory feasibility.
+Acceptance includes:
 
-Acceptance:
+- external initializer loading;
+- opset-aware operator dispatch/semantics;
+- required initializer/runtime datatypes such as FP16/BF16/int32/int64 when demanded by selected models;
+- optional/missing graph inputs handled according to ONNX semantics;
+- multi-file/split model representation when required;
+- compatibility report distinguishes parse, profile, datatype, operator, and execution gaps.
 
-- model loads without expanding the full weight set into boxed Lua scalars;
-- fixed prompt produces reference-consistent logits and token choice;
-- generation uses only PZONNX runtime execution;
-- elapsed time and observed memory behavior are recorded;
-- a one-token result is accepted for correctness even if it is initially very slow.
+Do not implement speculative breadth; prioritize requirements observed in real target models.
 
-Performance is not the first proof gate.
+## P11 — Tokenizer Runtime
 
-## P6 — resumable and quantized inference
-
-Goal: make long inference cooperative with the game loop and reduce memory/compute cost without losing accepted correctness.
+Goal: convert user text to/from model token IDs entirely inside the supported runtime.
 
 Acceptance:
 
-- bounded `InferenceJob.step(...)` execution;
-- cancellation and cleanup;
-- no unbounded frame-blocking loop in the supported path;
-- baseline measurements exist before optimization;
-- at least one meaningful optimization is demonstrated, such as buffer reuse, blockwise initializer access, quantization, or cache reuse;
-- optimized path remains within declared numerical acceptance.
+- tokenizer assets are loaded through ModelPackage;
+- at least the tokenizer format required by the selected real decoder model is implemented with reference vectors;
+- BOS/EOS/PAD/special-token rules are profile/config driven;
+- encode/decode round trips have trusted external references;
+- unsupported tokenizer features fail explicitly.
 
-## P7 — TTS proof
+Additional tokenizer families are added from real model demand.
 
-Goal: execute a selected small ONNX TTS path through PZONNX.
+## P12 — Generic Decoder Runtime
 
-The first neural proof may start from precomputed phoneme/token IDs to isolate neural inference from phonemization.
-
-Acceptance:
-
-- selected model and operator inventory documented;
-- fixed input reaches PCM/numeric audio output through PZONNX;
-- output is compared with a trusted reference;
-- no native/custom-Java/external inference dependency;
-- infeasible stages are documented precisely rather than hidden;
-- runtime scheduling remains bounded.
-
-## P8 — integration and hardening
-
-Goal: make PZONNX consumable by Project Hoomans/PBrainz or another adopter without coupling the generic runtime to that project.
+Goal: perform actual autoregressive text generation rather than one forward-pass token probing.
 
 Acceptance:
 
-- stable small public API;
-- model compatibility inspection API;
-- bounded job lifecycle;
-- useful diagnostics and probe surfaces;
-- adopter integrates PZONNX as a dependency rather than copying runtime code;
-- runtime failure degrades cleanly to the adopter's existing non-LLM/non-TTS path;
-- required native gates are collected for final handoff.
+- prompt prefill from tokenized text;
+- automatic construction of model input tensors from ModelProfile;
+- KV-cache initialization, capture, reuse, and update;
+- subsequent decode sends only the new token/cache state where the model contract permits;
+- output logits are taken from the correct final sequence position;
+- multi-token generation advances incrementally;
+- EOS/maximum-token cancellation works;
+- no TinyLLM-specific adapter is required for a recognized compatible decoder.
 
-## Parent completion rule
+## P13 — Sampling & Generation Controls
 
-The parent goal is complete only when:
+Goal: provide standard model-agnostic token selection.
 
-- all approved mandatory developer-side phases are implemented;
-- required host/reference acceptance is satisfied;
-- required native PZ probes are ready and, where available, have passed;
-- real-model LLM and TTS proofs are either accepted or a hard technical limitation has been reproducibly demonstrated;
-- no mandatory roadmap item remains silently deferred.
+Acceptance:
 
-If only final user-owned native checks remain, report **READY FOR USER LIVE TEST**, not COMPLETED and not BLOCKED.
+- deterministic greedy path;
+- temperature;
+- top-k;
+- top-p;
+- repetition/logit penalties only where semantics are explicitly defined;
+- seedable/random behavior where PZ Lua permits deterministic testing;
+- EOS and stop handling;
+- generation configuration can come from model metadata plus caller overrides.
+
+## P14 — Performance Planner, Profiler & Optimized Kernels
+
+Goal: make inference measurable, responsive, and materially faster while preserving correctness.
+
+### P14A profiler
+
+Record per-node/per-operator:
+
+- invocation count;
+- dimensions/element counts;
+- elapsed time where supported;
+- scheduler work;
+- initializer/storage behavior;
+- major allocation/liveness observations.
+
+Optimization priority must be driven by measured hotspots.
+
+### P14B cooperative kernels
+
+Extend sub-node resumability beyond MatMul/MatMulInteger to any real-model hotspot capable of blocking a frame.
+
+### P14C optimized execution
+
+Candidate work:
+
+- specialized flat-index MatMul/MatMulInteger paths;
+- fused quantized linear kernels;
+- constant folding;
+- safe graph/subgraph fusion;
+- precomputed indexing/strides;
+- scratch reuse;
+- liveness-based value release;
+- initializer resident/paged/streamed policy.
+
+Acceptance requires before/after measurements and unchanged declared numerical results.
+
+## P15 — Multi-Family Compatibility
+
+Goal: prove architecture agnosticism across multiple real decoder families/exports.
+
+Target classes may include Llama-compatible, Qwen, Mistral, Gemma/Phi-class exports, selected by available ONNX artifacts and runtime feasibility.
+
+Acceptance:
+
+- at least three structurally meaningful model packages are profiled;
+- at least two distinct decoder families complete reference-consistent generation without model-specific hard-coded Chat/TinyLM paths;
+- unsupported families produce actionable compatibility gaps;
+- "compatible" is reported from runtime evidence, not model-name whitelists.
+
+Large parameter count is not itself an acceptance requirement.
+
+## P16 — Product API & Real Chat UI
+
+Goal: expose actual generative inference to users/adopters.
+
+Acceptance:
+
+- public model registry APIs;
+- public generator/job APIs;
+- load/unload/cancel/progress;
+- model selection from ledger;
+- real text prompt input uses the tokenizer;
+- generated tokens stream/decode into readable text;
+- diagnostic mode retains raw token/logit/profile/profiler visibility;
+- the game remains responsive under bounded scheduling.
+
+The old Tiny-LLM chat probe remains a diagnostic regression surface until superseded.
+
+## P17 — Model-Agnostic TTS / Pipeline Expansion
+
+Goal: apply the same model-store/profile/execution principles to usable ONNX TTS or other supported neural pipelines.
+
+Acceptance is defined from a selected real pipeline after the LLM runtime stabilizes. Do not let TTS-specific requirements distort the generic LLM execution core.
+
+## Parent completion
+
+PZONNX is not complete because a model parses, one token is produced, TinyLLM runs, or P0-P8 tests pass.
+
+The parent goal reaches developer-side completion only when the model-store, generic model profiling, tokenizer, KV-backed generation, sampling, measured performance/runtime responsiveness, multi-family compatibility, and real text-generation API/UI are implemented to the accepted roadmap boundaries, or a hard technical limitation is demonstrated reproducibly.

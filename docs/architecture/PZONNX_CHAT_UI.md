@@ -1,52 +1,77 @@
-# PZONNX in-game Tiny-LLM chat probe
+# PZONNX in-game inference probe UI
 
-The client probe is a small Build 42 UI harness for exercising the current
-PZONNX runtime from inside Project Zomboid. It is deliberately separate from
-Project Hoomans and PBrainz.
+## Current role
 
-## Opening the window
+The existing Core-backed window is a **forward-pass/token diagnostic probe**, not a completed chat interface.
 
-The mod declares `PsychopatzCore` as a dependency and loads
-`PsychopatzCore/UI/PsychopatzUI`. The window therefore uses Core's themed
-`UI.Window`, responsive layout, text-entry/button factories, command hub, and
-configurable keybinds.
+It currently:
 
-- Press F8 by default; the key can be changed in the Core mod options.
-- Open the Core command hub and choose the PZONNX chat probe.
-- Open the Psychopatz Debug Hub and launch `PZONNX Tiny-LLM Chat Probe`.
-- The public client entry point is `PZONNXChatUI.Open()`.
-- Run advances one scheduler step per game tick; the Cancel button releases a
-  long-running job without closing the window.
+- loads one ONNX path;
+- accepts comma-separated numeric token IDs;
+- builds known decoder-style inputs;
+- advances a bounded inference job;
+- selects the highest-logit next token;
+- displays token ID/logit diagnostics.
 
-## Model and input
+The visible prompt text is currently a transcript label and is **not tokenized or fed to the model**. Therefore readable conversational output is not an acceptance expectation for this window yet.
 
-The default model field is:
+## Current model-path status
+
+The current source still contains the historical packaged/local test path:
 
 ```text
 media/pzonnx/models/tiny_llm/model_int8.onnx
 ```
 
-The linked `onnx-community/Tiny-LLM-ONNX` `model_int8.onnx` file is a local,
-ignored model asset. It must be copied into the relative mod path before the
-game can load it. Runtime performs no network access.
+That is superseded as the future user-model architecture.
 
-The probe accepts comma-separated integer token IDs. It does not claim to be a
-tokenizer: prompt text is retained as a transcript label only. For the linked
-decoder export, the adapter supplies `input_ids`, `attention_mask`,
-`position_ids`, and empty layer-0 key/value cache tensors. It reads the last
-sequence position from the `logits` output and displays the selected token ID
-and logit.
+The new authoritative user model root is:
 
-Model loading rejects a non-empty compatibility report. Inference advances one
-scheduler step per `OnTick`, including resumable matrix-kernel chunks; failed
-input, unsupported shape, unsupported operator, and invalid output conditions
-are shown explicitly in the window.
+```text
+Zomboid/Lua/Models/
+```
+
+with discovery through:
+
+```text
+Zomboid/Lua/Models/ledger.txt
+```
+
+Do not simply replace the text field with another hard-coded path. The UI should eventually select registered `ModelEntry`/`ModelPackage` objects from the model registry.
+
+## Responsiveness
+
+Native testing exposed a long main-thread stall during real-model inference.
+
+Current source now includes resumable MatMul/MatMulInteger kernel state, a bounded kernel work budget, one scheduler step per `OnTick`, and Cancel.
+
+This is accepted source/host progress. Native verification still must confirm that the game remains responsive and Cancel executes during a real model run.
+
+## Future UI modes
+
+When P16 is reached, keep two distinct surfaces/modes.
+
+### Generation mode
+
+- model selection from ledger-backed registry;
+- text prompt;
+- max tokens;
+- sampling controls;
+- generated readable text;
+- progress/cancel.
+
+### Diagnostic mode
+
+- raw token IDs;
+- ModelProfile/compatibility;
+- logits;
+- current token;
+- KV-cache state;
+- node/kernel progress;
+- profiler timing.
+
+Do not make the diagnostic probe pretend to be chat before tokenizer + generation runtime acceptance.
 
 ## Evidence boundary
 
-The shared adapter and the real linked model are host/reference verified: the
-adapter executed all 408 nodes outside the game and selected token ID `9309`
-for token ID `1`. The UI source is Kahlua-verified and the bundled adapter
-fixture passes its numerical test. Native Project Zomboid loading, UI display,
-and in-game numerical output remain open native gates until exercised in stock
-Build 42.20; this document does not promote host evidence to PZ acceptance.
+The linked real tiny model has host/reference forward-pass evidence. That does not yet prove native readable chat generation.

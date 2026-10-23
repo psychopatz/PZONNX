@@ -1,193 +1,124 @@
 # PZONNX Progress
 
-Last reconciled: P8 developer-side and host/reference acceptance; all mandatory developer-side roadmap phases implemented.
+Last reconciled: model-agnostic generative-runtime phase transition after native GUI/performance feedback.
 
 ## Parent goal
 
-Build the complete experimental pure-Kahlua ONNX runtime through the approved real-ONNX, graph execution, tiny-LLM, resumable/quantized inference, TTS, and integration milestones.
+Build a model-agnostic pure-Kahlua ONNX inference runtime for Project Zomboid that can discover user-supplied compatible model packages, inspect them, tokenize text, perform KV-backed autoregressive generation, sample/decode output, and remain responsive enough for in-game use.
 
 Parent state: **IN PROGRESS**.
 
 ## Current major phase
 
-**P8 — integration and hardening**
+**P9 — Model Store & Model-Agnostic Discovery**
 
-Developer state: **P0A-P8 mandatory developer-side implementation and host/reference acceptance complete.**
+State: **ACTIVE**.
 
-Native acceptance state: **P0A-P8 PZ runtime gates OPEN / UNVERIFIED.**
+The previous P0-P8 developer-side completion statement is historical foundation, not current parent completion.
 
-## Source-verified foundation
+## Accepted foundation preserved
 
-- Build 42.20 mod descriptor and shared bootstrap.
-- byte reader with offsets and protobuf varint support;
-- fixed32 and pure-Lua float32 decoding;
-- protobuf wire tag/length/skip primitives;
-- deterministic 16-byte packaged protobuf fixture;
-- reproducible fixture generator;
-- game-file adapter using `getGameFilesInput`;
-- bounded P0A diagnostic probe scheduled for game start;
-- host-style fake-stream smoke vectors.
+Source/host/reference evidence currently supports:
 
-P0B developer-side acceptance:
+- binary/protobuf reader;
+- real ONNX ModelProto parsing/indexing;
+- lazy packed initializer access;
+- tensor runtime and operator registry;
+- numerical P2-P7 fixtures;
+- resumable inference jobs;
+- quantized execution paths;
+- public session/fallback surfaces;
+- real 13,077,992-byte quantized tiny-LLM ONNX parsing/execution in host Lua;
+- 408 graph nodes completed with reference-consistent selected token evidence;
+- Core-backed in-game forward-pass/token probe;
+- resumable MatMul/MatMulInteger kernel machinery after native freeze feedback.
 
-- genuine `media/pzonnx/fixtures/p0b_minimal.onnx` ModelProto fixture packaged;
-- independent `tools/inspect_p0b_fixture.py` metadata inspection agrees with `tools/p0b_reference.json`;
-- ONNX library checker accepted the fixture as a valid model (`ir_version=8`, default opset 13, one Identity node);
-- top-level ModelProto parser identifies IR version, producer metadata, opset imports, graph name, and bounded graph counts;
-- unknown-field skipping and truncated length-delimited input have focused Lua tests;
-- bounded P0B diagnostic probe is scheduled for game start;
-- host Lua tests, `luac -p`, and the PZ Kahlua verifier pass.
+## Native evidence
 
-P1 indexing-slice developer-side acceptance:
+Observed native feedback includes:
 
-- `NodeProto` metadata is represented without execution: inputs, outputs, name, op type, domain, and attribute count;
-- tensor `ValueInfoProto` names, tensor element types, and fixed/symbolic shape dimensions are represented;
-- inline `TensorProto` dimensions, datatype, source/message offsets, raw-data offset/length, and storage location are indexed without retaining raw bytes;
-- external initializer references are represented as bounded key/value metadata, including location, offset, and length;
-- `initializerIndex` provides name-based lookup and compatibility inspection reports operators, opsets, datatypes, and explicit P2 execution-unavailable diagnostics;
-- genuine `p1_metadata.onnx` plus its sidecar is independently inspected and accepted by the ONNX checker;
-- focused Lua indexing tests, syntax checks, and the PZ Kahlua verifier pass.
+- P0A/P0B reached stock Project Zomboid;
+- the debug/chat probe became reachable after integration corrections;
+- the first real-model inference attempt caused a long apparent game freeze;
+- that stall was traced to large atomic matrix work;
+- source now slices MatMul/MatMulInteger into resumable kernel work and exposes Cancel.
 
-P1 compatibility-completion acceptance:
+Still open:
 
-- `AttributeProto` name, declared type, and payload kind are represented without expanding tensor/graph payloads;
-- compatibility reports preserve inspection-only operator status and explicitly report missing/mismatched/unindexed attribute metadata, unknown datatypes, and invalid storage declarations;
-- trusted inspector/reference manifests cover both an inline/external initializer model and a valid `Cast(to=INT)` attribute model;
-- focused tests cover attribute metadata, unknown-field skipping, wrong-wire rejection, truncation, and explicit unsupported diagnostics;
-- bounded P1 probe code covers operator, datatype, inline raw-data, external-data, and attribute metadata.
+- verify in stock PZ that sliced inference keeps the game responsive enough to interact/cancel;
+- verify real-model in-game numerical output after the scheduler change.
 
-P2 numerical execution acceptance:
+These gates remain important, but they do not block P9 source implementation.
 
-- genuine `p2_linear.onnx` fixture contains a 2-D float32 `MatMul -> Add` graph and compact inline initializers;
-- `tools/p2_reference.json` records exact input, expected output, `onnxruntime` reference lane, and `1e-6` tolerance;
-- development-time ONNX checker and ONNX Runtime both accept the fixture and produce output `2.5`;
-- pure-Lua `Tensor` and `Session` execute only supported 2-D float32 MatMul and same-shape Add paths;
-- initializer bytes are reopened and decoded on demand from recorded offsets, with no retained full-model byte table;
-- unsupported operators, attributes, initializer datatypes, and shape mismatches fail explicitly;
-- focused P2 Lua numerical tests, syntax checks, Kahlua verification, and bounded P2 probe code pass.
+## Product gap discovered
 
-P3 operator-runtime acceptance:
+The existing GUI is not a real chat system:
 
-- `OperatorRegistry` owns explicit MatMul/Add operator specifications, arity, attribute policy, and execution dispatch;
-- compatibility inspection predicts registry-supported versus unregistered/attribute-incompatible paths;
-- tensor broadcast-shape and flat-index mapping are deterministic and reject incompatible dimensions explicitly;
-- genuine `p3_broadcast.onnx` fixture uses Add with `[1,2] + [2]` and ONNX Runtime matches `[3.5, 3.5]` at `1e-6`;
-- P2 exact-shape behavior remains covered through the same registry;
-- focused registry/broadcast tests, syntax checks, Kahlua verification, and bounded P3 probe code pass.
+- prompt text is not sent to the model;
+- the input is raw token IDs;
+- there is no tokenizer runtime;
+- one forward pass returns one next-token ID/logit;
+- there is no generic prefill/decode loop;
+- KV inputs can be constructed but cache lifecycle is not a generation subsystem;
+- there is no token decoding or normal sampling.
 
-P4 transformer-style coverage acceptance:
+The test was valuable because it proved graph execution and exposed performance behavior; it must not be mistaken for final LLM inference.
 
-- frozen `p4_tiny_attention.onnx` inventory is `MatMul`, `Softmax(axis=1)`, `MatMul`, `Add`, all float32;
-- bounded hidden width and one-token input are documented in `P4_TINY_TRANSFORMER.md`;
-- ONNX Runtime reference logits are `[1.98079693, 1.01920283]` with maximum error `1.2e-7` against the recorded reference;
-- pure-Lua forward pass matches the declared `1e-6` tolerance;
-- compatibility inspection reports every required operator/attribute path as registry-supported;
-- focused P4 tests, syntax checks, Kahlua verification, and bounded P4 probe code pass;
-- tokenizer, positional encoding, KV cache, multi-token context, and general LLM generation remain intentionally unclaimed.
+## Superseded direction
 
-P5 one-token acceptance:
-
-- frozen `p5_tiny_lm.onnx` inventory is `Gather(axis=0)`, `MatMul`, and `Add`, with int64 token input and float32 weights/logits;
-- bounded model dimensions are vocabulary size three and hidden size two, with precomputed token ID `1` as input;
-- ONNX Runtime reference logits are `[0.60000002, 0.40000001, -0.10000000]` and select token ID `0` at `1e-6`;
-- pure-Lua `TinyLM` adapter matches logits and deterministic argmax choice;
-- focused P5 tests, syntax checks, Kahlua verification, and bounded P5 probe code pass;
-- this is not tokenizer, multi-token, KV-cache, production-scale, or general text-generation acceptance.
-
-P6 resumable/quantized acceptance:
-
-- `InferenceJob.step(budget)` owns cursor, state, bounded node work, terminal completion/cancellation, and failure cleanup;
-- `Session.run` is a convenience wrapper over the explicit job contract, while `Session:newJob` exposes cooperative execution;
-- cancellation and positive-budget validation have focused tests;
-- opt-in int8 initializer storage uses declared scale `0.02`, reduces the float32 initializer storage footprint, and preserves the P2 output within `1e-6`;
-- P6 probe code records node budget, terminal state, storage mode/scale, and numerical output;
-- focused P6 tests, syntax checks, Kahlua verification, and bounded P6 probe code pass.
-
-P7 numeric TTS acceptance:
-
-- frozen `p7_tiny_tts.onnx` inventory is `Gather`, `MatMul`, and `Add` with int64 precomputed token input and float32 numeric output;
-- `TinyTTS` is a separate adapter with bounded one-token/one-block behavior and no Project Hoomans/PBrainz dependency;
-- ONNX Runtime reference PCM is `[0.5, -0.15, 0.32, 0.3]` with maximum error below `3e-8` against the recorded reference;
-- pure-Lua adapter output matches the declared `1e-6` tolerance;
-- focused P7 tests, syntax checks, Kahlua verification, and bounded P7 probe code pass;
-- phonemization, vocoder quality, full-sentence TTS, and production audio acceptance remain explicitly unclaimed.
-
-P8 integration/hardening acceptance:
-
-- stable public API exposes model loading/inspection, sessions, bounded jobs, capabilities, runtime status, and adapters;
-- `Fallback` adopter boundary preserves a primary path on success and reports/degrades cleanly to an existing fallback on unsupported/failing PZONNX execution;
-- generic runtime modules do not import Project Hoomans or PBrainz;
-- host adopter-contract tests cover inspection, cooperative jobs, primary success, fallback success, and visible primary errors;
-- bounded P8 diagnostic probe reports API/fallback readiness while retaining open native-gate status;
-- all Lua syntax checks, PZ Kahlua verification, focused P0-P8 host tests, and ONNX Runtime reference checks pass.
-
-## Open evidence
-
-Not yet PZ-runtime verified:
-
-- packaged fixture virtual path resolution;
-- DataInputStream method bridging;
-- expected P0A PASS line;
-- real ONNX fixture virtual path resolution and top-level parser execution;
-- expected P0B PASS line.
-- P1 indexed fixture virtual path resolution and metadata probe execution;
-- expected P1 PASS line.
-- P1 attribute fixture and compatibility report virtual path resolution;
-- expected complete P1 PASS line.
-- P2 fixture virtual path resolution and pure-Kahlua numerical execution;
-- expected P2 PASS line with reference-consistent output.
-- P3 registry dispatch and broadcast execution through the packaged fixture;
-- expected P3 PASS line with reference-consistent output.
-- P4 fixture virtual path resolution and bounded transformer-style forward pass;
-- expected P4 PASS line with reference-consistent logits.
-- P5 fixture virtual path resolution and one-token adapter execution;
-- expected P5 PASS line with reference-consistent logits and token choice.
-- P6 cooperative job budget/cancellation and quantized initializer path;
-- expected P6 PASS line with reference-consistent output and storage measurement.
-- P7 numeric-audio fixture virtual path resolution and bounded TTS adapter execution;
-- expected P7 PASS line with reference-consistent PCM values.
-
-## Final developer-side handoff
-
-All mandatory developer-side roadmap phases P0A-P8 are implemented and have source/host/reference evidence. Project Zomboid runtime evidence remains open for the accumulated bounded probes:
-
-- P0A packaged binary/protobuf path;
-- P0B genuine ONNX top-level parse;
-- P1 model indexing/compatibility inspection;
-- P2/P3 numerical graph execution and operator runtime;
-- P4 transformer-style forward pass;
-- P5 one-token tiny-LM proof;
-- P6 cooperative/quantized execution;
-- P7 numeric TTS path;
-- P8 adopter/fallback boundary.
-
-Required handoff state: **READY FOR USER LIVE TEST**.
-
-This is not a claim of Project Zomboid runtime acceptance or complete parent-goal acceptance. Do not mark the parent goal completed until the required native evidence is captured and reviewed.
-
-Expected P0A native success evidence:
+The following old conclusion is no longer authoritative:
 
 ```text
-[PZONNX] INFO probe=P0A status=PASS path=media/pzonnx/fixtures/p0_probe.pb bytes=16 varint=150 text=PZONNX float32=1.0
+P8 complete
+no developer-implementable chunk remains
+READY FOR USER LIVE TEST
 ```
 
-These remain mandatory acceptance items but are not a reason to stop developer-side implementation.
+Reason: the clarified objective requires a model store, generic model profiling, tokenizer, KV-backed generation, sampling, performance work, multi-family compatibility, and real text-generation UI/API.
 
-## Exact Next Chunk — none developer-implementable
+## Exact Next Chunk — P9A User Model Store + Ledger
 
-No mandatory developer-side roadmap chunk remains after P8.
+Authoritative user-visible model root:
 
-Required work:
+```text
+Zomboid/Lua/Models/
+```
 
-1. user-owned live testing is required to close the accumulated native gates;
-2. preserve every probe and expected evidence line for that run;
-3. do not claim PZ runtime or parent acceptance from host/reference evidence.
+Authoritative manifest:
 
-Do **not** add transformer-specific logic in this chunk.
+```text
+Zomboid/Lua/Models/ledger.txt
+```
 
-## Following chunk
+Implement:
 
-After the accumulated native probes pass in stock Project Zomboid Build 42.20, reassess the parent acceptance criteria; until then report **READY FOR USER LIVE TEST**.
+1. a user-file/model-store IO boundary separate from `GameFile` packaged fixtures;
+2. ledger parser for one relative model entry path per nonblank/non-comment line;
+3. strict root/path safety;
+4. lightweight `ModelEntry` registry states such as REGISTERED/MISSING/INVALID;
+5. lazy behavior: registry refresh must not parse every ONNX model;
+6. refresh/list/get public operations;
+7. host tests for parsing, duplicates, missing entries, and path rejection;
+8. bounded in-game ledger probe using the supported Lua-user-file path;
+9. update public capability/status only to claims actually implemented.
+
+Do not implement tokenizer/generation/UI redesign in this chunk.
+
+## Following chunks
+
+After P9A acceptance, continue directly:
+
+- P9B ModelPackage;
+- P9C ModelProfile;
+- P9D generic model probe;
+- P10 ONNX compliance/external data/opset expansion;
+- P11 tokenizer;
+- P12 KV-backed prefill/decode;
+- P13 sampling;
+- P14 profiler/performance;
+- P15 multi-family compatibility;
+- P16 real generative API/UI;
+- P17 TTS/pipeline expansion.
 
 ## Evidence labels
 
@@ -197,131 +128,9 @@ Use:
 - host/reference verified;
 - PZ runtime verified;
 - real-model verified;
+- generation verified;
+- multi-family verified;
 - adopter verified;
 - open native gate;
 - partial;
 - unsupported/unproven.
-
-## Final handoff rule
-
-If all developer-implementable mandatory work is complete and only user-owned native verification remains, report:
-
-**READY FOR USER LIVE TEST**
-
-Do not report COMPLETED or BLOCKED in that state.
-
-## Targeted external-model probe — 2026-10-23
-
-The requested Hugging Face model was tested outside the repository using the
-13,077,992-byte `onnx/model_int8.onnx` export (SHA-256
-`33c4f02ff02d3c997d76f190ecbe1d6e88307182a4d7caf8be49db1ded60839b`). The
-artifact was kept in `/tmp`, not packaged or published.
-
-- Host Lua streaming `BinaryReader` + `Model.parseReader` passed on the genuine
-  ModelProto: IR 8, graph `main_graph`, 408 nodes, 30 initializers, 5 inputs,
-  3 outputs, and 375 value-info entries.
-- A bounded `Session:newJob()` executed all 408 nodes using packed initializer
-  storage. The job completed with `state=completed`, `cursor=409`, and
-  `work=408`; no native library, JNI, Python runtime, server, or companion
-  process was used by the Lua execution.
-- With `input_ids=[[1]]`, `attention_mask=[[1]]`, `position_ids=[[0]]`, and
-  empty layer-0 KV inputs, Lua produced token index `9309` (zero-based),
-  `max(logits)=11.559551055381`, and logits beginning
-  `9.3276447538538,9.4631352458317,1.989958994424`.
-- A development-time explicit int32 reference graph, rewriting each
-  `MatMulInteger` as centered int32 `Cast`/`Sub`/`MatMul`, produced the same
-  token index and logits within approximately `1e-6`; the first five present
-  key/value elements also matched within float32 rounding. This is the
-  numerical reference used for the result because it directly exercises the
-  ONNX operator semantics.
-- The installed ONNX Runtime CPU provider's original mixed uint8/int8
-  `MatMulInteger` path differed in two projection elements and consequently
-  reported `max(logits)=11.401731491089`, although it selected the same token
-  index `9309`. That provider discrepancy is retained as evidence, not treated
-  as Lua acceptance evidence.
-
-This is host/reference evidence only. It proves the current runtime can execute
-this real tiny-LLM export in host Lua, but it is not Project Zomboid runtime
-acceptance. The accumulated native PZ gates remain open and the required
-handoff state is still **READY FOR USER LIVE TEST**.
-
-The follow-up regression pass also fixed packed-initializer quantization,
-preserved the stable MatMul shape-mismatch diagnostic, and updated the Cast
-compatibility expectation. All `tests/test_*.lua` tests now pass, Kahlua
-verification reports zero errors, and the graph index has no recorded parse or
-coverage gaps for the changed runtime/test files.
-
-## Developer chunk — in-game Core chatbot probe UI — 2026-10-23
-
-Implemented a bounded client-side test harness in
-`media/lua/client/PZONNX/ChatUI.lua` and the model-specific input/output
-adapter in `media/lua/shared/PZONNX/Adapters/Chat.lua`.
-
-- **source-verified:** `mod.info` requires `PsychopatzCore`; the UI explicitly
-  requires Core's shared UI, command hub, and keybind modules, then derives
-  from `UI.Window` and uses Core controls/layout/theme APIs.
-- **source-verified:** F8 toggle and Core command-hub action open one persistent
-  `PZONNX Tiny-LLM Chat Probe` window; model path, token IDs, prompt label,
-  load/run/clear controls, transcript, and status are visible in-game.
-- **source-verified:** the default path is
-  `media/pzonnx/models/tiny_llm/model_int8.onnx`; no runtime network/tokenizer
-  dependency is introduced. Unsupported model compatibility, malformed token
-  IDs, invalid cache shapes, invalid output shapes, and job failures fail
-  explicitly in the panel.
-- **source-verified:** inference is cooperative (`InferenceJob:step(1)` per
-  `OnTick`) and MatMul/MatMulInteger kernels yield after bounded chunks; the
-  adapter keeps weights lazy/packed through the existing session path.
-- **host/reference verified:** `tests/test_chat_adapter.lua` passes on the
-  bundled P5 fixture; the same adapter was run against the linked real model
-  with profile `decoder-cache`, `sequenceLength=1`, `cacheCount=2`, 408
-  completed nodes, token ID `9309`, and logit `11.559551055381`.
-- **local test asset:** the linked model is copied to the ignored local path
-  used by the UI; it is not committed or published to Steam Workshop. SHA-256
-  is `33c4f02ff02d3c997d76f190ecbe1d6e88307182a4d7caf8be49db1ded60839b`.
-- **validation:** all `tests/test_*.lua` tests pass; `luac -p`, `git diff
-  --check`, and Kahlua verification pass with zero errors.
-- **open native gate:** this session could not access the running Linux PZ
-  process through the computer-use connector, and the current `console.txt`
-  has no PZONNX load line. Do not claim the UI or real-model result as native
-  PZ acceptance. The developer-side chunk is ready for a bounded stock Build
-  42.20 live test.
-
-## Native feedback correction — P1 probe and Debug Hub visibility — 2026-10-23
-
-The first stock-PZ test exposed two integration issues. The native log showed
-P0A and P0B passing, then P1 failing because `P1Probe.lua` still expected the
-now-supported `Cast` operator to be unregistered. The stale expectation is now
-aligned with the host test and the current operator registry; this was a probe
-diagnostic defect, not evidence that the parser rejected the model.
-
-The screenshot also showed the Psychopatz **Debug Hub**, not the separate Core
-Command Hub. The client probe now registers in both hubs, retains the F8
-keybind, and emits `chat_ui=registered` so the next native log can distinguish
-client registration from shared-runtime startup. Native UI display and real
-model inference remain open until the corrected client is loaded and exercised.
-
-## Native feedback correction — resumable heavy-kernel execution — 2026-10-23
-
-The corrected native run reached the Core-backed chat window and loaded the
-linked model, but the first inference attempt made Project Zomboid appear
-unresponsive. This was not accepted as normal behavior. The model's final
-`MatMulInteger` projects 192 hidden values to 32,000 logits, requiring about
-6.1 million multiply-accumulates for one token. The previous scheduler yielded
-only between complete graph nodes, so one large operator could still monopolize
-the game thread.
-
-The runtime now exposes resumable `Tensor.beginMatmul`/
-`Tensor.beginMatmulInteger` state and bounded `Tensor.stepMatmul` chunks;
-`InferenceJob` preserves the active operator across calls with a 4,096
-multiply-accumulate kernel budget. The chat UI advances one scheduler step per
-`OnTick` and provides an explicit Cancel action. `Session:run` continues until
-its resumable job completes, preserving the synchronous API contract.
-
-- **host/reference verified:** the linked model completes in 2,072 scheduler
-  steps with cursor 409 and returns token ID `9309`, logit
-  `11.559551055381`, matching the previous host result.
-- **host/reference verified:** focused resumable MatMul test, all P0-P8 tests,
-  Lua compilation, and Kahlua verification pass.
-- **open native gate:** the next stock-PZ run must confirm that the game remains
-  responsive during sliced inference and that Cancel releases the job; no
-  native non-freeze or in-game numerical acceptance is claimed yet.

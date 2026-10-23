@@ -2,134 +2,118 @@
 
 ## Purpose
 
-PZONNX needs stronger evidence discipline than an ordinary Lua mod because it is attempting binary parsing, numerical execution, model compatibility, and eventually LLM/TTS inference inside Kahlua.
-
-Acceptance is therefore split into evidence lanes. Missing evidence in one lane must remain visible, but it must not automatically stop unrelated developer-side work.
+PZONNX combines binary parsing, ONNX numerical execution, user-file access, model discovery, tokenization, autoregressive generation, and game-thread scheduling. Evidence must therefore be labeled precisely.
 
 ## Evidence lanes
 
-### 1. Source acceptance
+### Source acceptance
 
-Proves that the implementation exists and its contracts are internally coherent.
+Implementation/contracts exist and unsupported behavior fails explicitly.
 
-Examples:
+### Host/reference acceptance
 
-- module exists;
-- API shape is correct;
-- unsupported behavior fails explicitly;
-- model metadata is represented without hidden native execution.
+Development tooling may use Python, ONNX, ONNX Runtime, tokenizer/model libraries, and model exporters to generate trusted fixtures and numerical/text references. These are not runtime dependencies.
 
-Source acceptance is necessary but never proves runtime behavior.
+### Project Zomboid runtime acceptance
 
-### 2. Host/reference acceptance
+Only stock PZ runtime evidence proves in-game loading, user-file access, responsiveness, UI behavior, or inference.
 
-Uses development tooling outside Project Zomboid to produce trusted fixtures and expected outputs.
+### Real-model acceptance
 
-Examples:
+A non-toy model package performs the claimed operation through PZONNX.
 
-- Python generates a real ONNX fixture;
-- ONNX Runtime produces expected tensor outputs;
-- protobuf/model metadata from PZONNX-oriented fixtures is independently inspected;
-- static or host-compatible Lua tests exercise portable logic.
-
-Host/reference acceptance may use Python, ONNX, ONNX Runtime, and model-export tooling because those are **development-only reference systems**, not game runtime dependencies.
-
-### 3. Project Zomboid runtime acceptance
-
-Proves that the code actually works through stock supported Project Zomboid Lua/Kahlua APIs.
-
-Examples:
-
-- packaged binary fixture opens through the selected PZ API;
-- a real `.onnx` is parsed in-game;
-- a tiny graph executes in-game;
-- a transformer forward pass produces the expected result in-game.
-
-Only this lane can justify claims such as "works in Project Zomboid."
-
-### 4. Real-model acceptance
-
-Proves that a non-toy target model works through PZONNX rather than merely parsing synthetic fixtures.
-
-Examples:
-
-- selected tiny transformer reaches reference-consistent logits;
-- selected TTS model reaches reference-consistent PCM/numeric audio.
-
-### 5. Adopter acceptance
-
-Proves that another mod can consume PZONNX through its public API without copying or bypassing the runtime.
-
-This belongs late in the roadmap.
-
-## Non-blocking native evidence rule
-
-Missing Project Zomboid runtime evidence is an **open acceptance gate**, not automatically a developer blocker.
-
-If P0A has not been run live, the agent must:
-
-1. keep P0A marked unverified;
-2. avoid claiming that the packaged path works;
-3. continue implementing P0B/P1/P2 developer-side components when they can be built safely from documented APIs and reference fixtures;
-4. keep native probes ready so the open gates can be exercised later;
-5. stop only if the next implementation decision truly depends on a runtime fact that cannot be safely isolated behind an adapter or fallback.
-
-This rule exists to prevent the project from repeatedly stopping and asking the user to perform live tests after every phase.
-
-## Native gate accumulation
-
-It is acceptable for multiple native gates to remain open during development.
-
-For example:
+For LLM claims this is graduated:
 
 ```text
-P0A source + reference work complete
-P0A native gate open
-
-P0B source + reference work complete
-P0B native gate open
-
-P1 source + reference work complete
-P1 native gate open
+real model parsed
+< forward pass
+< reference-consistent logits
+< tokenizer accepted
+< prefill + KV decode
+< multi-token text generation
+< multi-family generation
 ```
 
-The parent goal remains IN PROGRESS.
+Do not collapse these into one "LLM works" label.
 
-Before final developer-side handoff, the agent should make every required native probe simple, bounded, and diagnostically useful. User-owned final live testing can then validate the accumulated native gates efficiently.
+### Adopter acceptance
 
-## Hard blocker definition
+Another mod consumes the stable PZONNX API without copying or bypassing the runtime.
 
-A native/runtime issue is a true blocker only when all of the following are true:
+## Native feedback already established
 
-- the missing fact materially determines the next implementation;
-- no safe adapter boundary, reference fixture, documented API contract, or conservative fallback can isolate it;
-- proceeding would likely create invalid architecture or data corruption;
-- the blocker is documented with the exact unanswered question and the smallest reproducer/probe needed to resolve it.
+Native testing has already provided useful evidence:
 
-"Need user to launch PZ" by itself is not a blocker.
+- P0A/P0B reached stock PZ;
+- the Core-backed test window became reachable after integration fixes;
+- a real inference attempt exposed main-thread stalls;
+- the runtime was changed to resumable MatMul/MatMulInteger kernel chunks.
+
+The next live run still needs to verify the non-freeze/cancel behavior numerically. This remains an open native gate, not a reason to halt P9 developer work.
+
+## Non-blocking native evidence
+
+Missing native evidence remains an open gate unless the next architecture decision genuinely depends on it and cannot be isolated.
+
+Do not repeatedly stop after every developer chunk for user live testing.
 
 ## Numerical acceptance
 
-Every numerical proof needs:
+Every numerical claim records:
 
-- fixture/model identity;
-- input values;
-- trusted reference implementation;
-- output values;
-- declared tolerance;
+- model/fixture identity and revision/hash when practical;
+- exact input;
+- reference implementation;
+- expected output;
+- PZONNX output;
+- tolerance;
 - comparison result.
 
-Do not loosen tolerances merely to make a test pass.
+Do not loosen tolerance merely to pass.
+
+## Text-generation acceptance
+
+Readable text is not accepted merely because arbitrary bytes/token IDs are displayed.
+
+A generative-LM claim requires:
+
+- prompt text was actually tokenized into the model input;
+- generation used the intended decoder contract;
+- KV state was reused where supported;
+- token selection followed the declared sampling policy;
+- generated token IDs were decoded through the model tokenizer;
+- EOS/stop/max-token behavior was bounded;
+- output was produced by PZONNX runtime inference rather than a fallback string generator.
+
+## Responsiveness acceptance
+
+"Cooperative" means heavy work yields below any operator boundary that can materially stall a frame.
+
+A scheduler that yields only between graph nodes is insufficient if one node can monopolize the game thread.
+
+Measured total latency and perceived responsiveness are separate:
+
+- responsiveness: game/UI remains usable and cancel/progress can execute;
+- throughput: time-to-first-token and tokens/time improve through measured optimization.
+
+## Model-agnostic acceptance
+
+Do not claim model agnosticism from one model name or one custom adapter.
+
+Required evidence grows through:
+
+1. generic ledger/package loading;
+2. automatic ModelProfile discovery;
+3. generic generation contract;
+4. multiple structurally distinct real model packages;
+5. at least two decoder families generating through the same generic runtime.
+
+Unsupported models must remain inspectable and produce actionable gaps.
 
 ## Parent completion
 
-PZONNX is not complete because:
+The earlier P0-P8 developer-side completion state is superseded.
 
-- P0 passed;
-- a real ONNX parsed;
-- MatMul worked;
-- one phase's tests passed;
-- a model loaded;
-- one token was produced without reference agreement.
+Parent completion now requires the mandatory P9+ roadmap for the model-agnostic generative runtime, or a hard technical limitation demonstrated with reproducible evidence.
 
-Parent completion requires the approved mandatory roadmap to be completed and accepted, or a hard limitation to be proven and documented.
+A one-token TinyLLM/real-model proof is accepted foundation, not final completion.

@@ -2,141 +2,276 @@
 
 ## Product boundary
 
-PZONNX is not a port of Microsoft ONNX Runtime and must not present itself as one.
+PZONNX is not a port of Microsoft ONNX Runtime.
 
-It is a selective ONNX interpreter/runtime designed for the constraints of Project Zomboid's supported Lua/Kahlua environment. Compatibility is model-driven: PZONNX supports a model only when every required datatype, protobuf feature, ONNX operator, shape rule, and runtime behavior needed by that model is implemented and verified.
+It is a selective, model-driven ONNX inference runtime written for Project Zomboid's supported Lua/Kahlua environment. Its target is not one TinyLLM export: it should accept any ONNX model package whose required protobuf features, tensor datatypes, operators, opset semantics, memory requirements, tokenizer/generation metadata, and runtime contract PZONNX supports.
+
+"Model agnostic" does not mean every arbitrary ONNX graph is guaranteed to run. It means trying a new compatible model should not require hard-coding that model into the runtime.
 
 ## Runtime invariant
 
-The core experiment is valid only when inference occurs inside stock Project Zomboid through supported Lua/Kahlua-accessible APIs.
+Inference acceptance requires stock Project Zomboid Lua/Kahlua-accessible APIs only.
 
-Forbidden as a substitute for the runtime:
+Forbidden as a substitute for runtime inference:
 
 - native DLL/shared-library inference;
-- JNI or custom Java classes;
+- JNI/custom Java classes;
 - JVM patching/injection;
 - Python at game runtime;
 - localhost/remote inference servers;
-- companion executables.
+- companion inference executables.
 
-Development-time Python, ONNX, and ONNX Runtime are allowed only to create fixtures, inspect models, and produce trusted reference outputs.
+Development-time Python/ONNX/ONNX Runtime may generate fixtures, inspect/export models, create reference outputs, profile compatibility, and optimize model artifacts.
 
-## Layers
+## Two file domains
+
+PZONNX intentionally separates internal regression assets from user models.
+
+### Internal packaged fixtures
 
 ```text
-Model file
-  |
-  v
-IO / BinaryReader
-  |
-  v
-Protobuf wire decoder
-  |
-  v
-ONNX model/index layer
-  |
-  +--> lazy initializer metadata / weight access
-  |
-  v
-Tensor representation
-  |
-  v
-Operator kernels
-  |
-  v
-Graph executor / Session
-  |
-  v
-Incremental inference job
-  |
-  +--> LLM adapter
-  +--> TTS adapter
+Contents/mods/PZONNX/42.20/media/pzonnx/fixtures/
+```
+
+These are small deterministic tests and may use the packaged game-file IO path.
+
+### User model store
+
+Authoritative user-visible root:
+
+```text
+Zomboid/Lua/Models/
+```
+
+Authoritative discovery manifest:
+
+```text
+Zomboid/Lua/Models/ledger.txt
+```
+
+PZONNX must not depend on directory enumeration. The ledger explicitly lists model entry files.
+
+Example:
+
+```text
+# one entry model per line
+tinyllm/model_int8.onnx
+llama/model.onnx
+qwen/decoder.onnx
+```
+
+Blank lines and comment lines are ignored. Entries are root-relative and must never escape `Zomboid/Lua/Models/`.
+
+The exact Lua API path used to reach this user-visible directory remains a runtime contract to verify; ONNX/model logic must not depend directly on that bridge detail.
+
+## Layered architecture
+
+```text
+                 Zomboid/Lua/Models/ledger.txt
+                              |
+                              v
+                         ModelStore
+                              |
+                              v
+                         ModelEntry
+                              |
+                              v
+                         ModelPackage
+                 /------------+-------------\
+                v             v              v
+          ONNX files       configs       tokenizer assets
+                |             |              |
+                +-------------+--------------+
+                              |
+                              v
+                         ModelProfile
+                              |
+              /---------------+----------------\
+             v                v                 v
+        compatibility    generation       tokenizer
+                           contract         contract
+             \                |                 /
+              +---------------+----------------+
+                              |
+                              v
+                       ONNX Execution Core
+          IO -> Protobuf -> Model -> Tensor -> Operators
+                              |
+                              v
+                     ExecutionPlan / Session
+                              |
+                              v
+                    resumable kernel scheduler
+                              |
+                 /------------+-------------\
+                v                          v
+          Generative Runtime             TTS/Pipeline
+      tokenizer -> prefill -> KV
+          -> decode -> sampling
 ```
 
 ## Ownership
 
 ### IO
 
-Owns byte-exact access and offsets. It does not understand protobuf or ONNX.
+Owns byte-exact access and source abstraction. Packaged fixtures and user model files must share a reader contract but use separate source adapters.
 
-### Protobuf
+### ModelStore
 
-Owns protobuf wire decoding, field tags, length-delimited regions, and safe skipping of unknown fields. It does not understand ONNX semantics.
+Owns `Models/ledger.txt`, safe relative-path validation, lazy registry entries, refresh, missing-entry diagnostics, and model-package roots. It must not parse every model during startup.
+
+### ModelPackage
+
+Owns one logical model directory/package: ONNX entry point(s), known companion metadata/config files, tokenizer assets, and relative external-weight resolution.
+
+### ModelProfile
+
+Owns discovered task/architecture/generation contract. It should derive evidence in priority order:
+
+1. explicit generative config when present;
+2. standard model/config/tokenizer metadata;
+3. ONNX graph names, shapes, types, and structural patterns;
+4. optional PZONNX override only when automatic discovery is insufficient.
+
+The profile records both the inferred result and the evidence/confidence. It must not silently guess required fields.
 
 ### ONNX
 
-Owns ModelProto/GraphProto/TensorProto interpretation, opsets, node attributes, shapes, initializers, and compatibility diagnostics.
+Owns protobuf ONNX semantics: ModelProto, graph, tensors, attributes, opsets, external-data metadata, compatibility inspection, and source offsets.
 
-### Tensor
+### Tensor / operators
 
-Owns tensor shape, element indexing, temporary buffers, numeric conversion, and later quantized representations.
+Own numerical semantics. Operator dispatch must ultimately be **opset-aware**, datatype-aware, and explicit about supported attribute combinations.
 
-### Ops
+### ExecutionPlan / Session
 
-Each supported operator owns its ONNX semantics and numerical kernel. Unsupported attributes or type combinations must fail explicitly.
+Own graph scheduling, value lifetime, initializer policy, scratch buffers, cancellation, execution state, and model outputs.
 
-### Runtime
+### Kernel scheduler
 
-Owns graph scheduling, value lifetimes, execution state, cancellation, work budgeting, and incremental/resumable execution.
+Heavy operators must be resumable below whole-node granularity. A graph node is not a valid responsiveness budget when one MatMul can perform millions of multiply-accumulates.
 
-### Adapters
+Current resumable MatMul/MatMulInteger is accepted foundation; the same rule should extend to other kernels that can monopolize a frame.
 
-LLM and TTS layers translate model-specific inputs/outputs. They may not bypass the runtime with native inference.
+### Generative runtime
+
+Owns generic causal-decoder behavior:
+
+- text tokenization;
+- prompt prefill;
+- automatic input construction;
+- KV-cache creation/update/reuse;
+- one-token decode;
+- logits selection;
+- sampling;
+- EOS/BOS/PAD behavior;
+- token-to-text decoding;
+- cancellation/progress.
+
+It must consume a `ModelProfile` rather than hard-code TinyLLM/Llama/Qwen branches unless a genuinely family-specific contract requires a plugin/adapter.
+
+### UI
+
+The UI is a test/product surface, not model logic.
+
+The current "Tiny-LLM Chat Probe" is actually a **forward-pass/token probe**: prompt text is only a transcript label, raw token IDs are the model input, and one next-token ID/logit is displayed. Preserve it as a diagnostic surface until the real generative runtime exists; do not treat it as chat acceptance.
+
+## Model package discovery
+
+Given ledger entry:
+
+```text
+llama/model.onnx
+```
+
+PZONNX derives package root:
+
+```text
+Zomboid/Lua/Models/llama/
+```
+
+It may probe known companion names without enumerating the directory, for example:
+
+- `genai_config.json`;
+- `config.json`;
+- `generation_config.json`;
+- `tokenizer.json`;
+- `tokenizer_config.json`;
+- `special_tokens_map.json`;
+- `vocab.json`;
+- `merges.txt`;
+- ONNX-declared external tensor files.
+
+Missing optional files are not errors by themselves.
+
+## Performance architecture
+
+PZONNX has two independent performance requirements.
+
+### Responsiveness
+
+Long work must yield to Project Zomboid. "One graph node per tick" is insufficient when a single node is large.
+
+### Throughput
+
+The runtime should minimize interpreted work through measured optimization:
+
+- specialized flat-index matrix kernels;
+- integer/quantized fused kernels;
+- graph constant folding;
+- safe operator/subgraph fusion;
+- precomputed strides and shape metadata;
+- buffer/scratch reuse;
+- value liveness and early release;
+- initializer resident/paged/streamed policies;
+- true KV-cache decode rather than recomputing history.
+
+Optimization must be profiler-driven and preserve numerical acceptance.
 
 ## Memory strategy
 
-Naively expanding a model into Lua tables is unacceptable for larger experiments.
+Avoid full-model boxed-scalar expansion.
 
-PZONNX should prefer:
+Prefer:
 
-- compact graph metadata;
-- lazy or bounded initializer decoding;
-- reusable scratch buffers;
-- bounded activation lifetime;
+- packed initializer storage;
+- lazy/external initializer access;
+- compact graph/profile metadata;
+- bounded activations;
 - explicit KV-cache limits;
-- streaming/blockwise weight access where practical;
-- quantized storage only after correctness is proven.
-
-Every optimization must preserve a reference-correct path for testing.
-
-## Scheduling strategy
-
-Long inference must not monopolize a Project Zomboid frame.
-
-The target runtime exposes resumable work:
-
-```text
-InferenceJob.step(budget)
-  -> perform bounded work
-  -> persist execution cursor
-  -> yield to game
-  -> resume later
-```
-
-The exact budget unit may evolve from primitive operations to rows/blocks/nodes, but the scheduler must be deterministic and auditable.
+- liveness-based intermediate release;
+- scratch-buffer reuse;
+- streaming/paging for large weights when feasible.
 
 ## Error philosophy
 
-Unsupported is a valid result.
+Unsupported is a valid, useful result.
 
-PZONNX must prefer:
+A new model should resolve to a diagnostic state such as:
 
 ```text
-unsupported operator: LayerNormalization opset 17 attribute ...
+FOUND
+PARSED
+PROFILED
+GENERATION CONTRACT RECOGNIZED
+UNSUPPORTED:
+  FLOAT16 initializer decode
+  com.microsoft::GroupQueryAttention
 ```
 
-over silent approximation.
+rather than crashing startup or silently approximating semantics.
 
-Every model load should eventually produce a compatibility report containing required opsets, operators, datatypes, unsupported features, and estimated memory-relevant metadata.
+## Public direction
 
-## Numerical acceptance
+The eventual primary flow should be closer to:
 
-Correctness is evaluated against trusted development-time reference outputs.
+```text
+PZONNX.refreshModels()
+PZONNX.listModels()
+PZONNX.loadModel(modelId)
+PZONNX.createGenerator(model)
+generator:prompt(text)
+generator:step(budget)
+```
 
-Tolerance is declared per fixture and datatype. PZONNX must not loosen tolerance merely to pass a model.
-
-## First architectural proof
-
-The first complete proof is intentionally small: a genuine ONNX model, parsed and executed in PZ Lua, with numerically matching output.
-
-Transformer and TTS work cannot substitute for this foundation.
+rather than requiring adopters to know packaged ONNX paths or construct TinyLM-specific inputs manually.
