@@ -3,6 +3,7 @@ local Tensor = require "PZONNX/Tensor"
 
 local InferenceJob = {}
 InferenceJob.__index = InferenceJob
+InferenceJob.KERNEL_WORK_BUDGET = 4096
 
 local function findValue(values, name)
     local value = values[name]
@@ -29,10 +30,11 @@ function InferenceJob.new(session, inputs)
         state = "pending",
         outputs = nil,
         errorMessage = nil,
+        activeNode = nil,
     }, InferenceJob)
 end
 
-function InferenceJob:_executeNode(node)
+function InferenceJob:_prepareNode(node)
     local specification = OperatorRegistry.get(node.domain, node.opType)
     if specification == nil then
         error("PZONNX unsupported operator: " .. tostring(node.domain) .. ":" .. tostring(node.opType))
@@ -49,7 +51,10 @@ function InferenceJob:_executeNode(node)
     for inputIndex = 1, #node.inputs do
         inputTensors[inputIndex] = self.session:_resolveValue(self.values, node.inputs[inputIndex])
     end
-    local result = specification.execute(inputTensors, node.attributes)
+    return specification, inputTensors
+end
+
+function InferenceJob:_storeNodeResult(node, specification, result)
     if specification.outputCount == 1 then
         self.values[node.outputs[1]] = result
     else
@@ -57,6 +62,11 @@ function InferenceJob:_executeNode(node)
             self.values[node.outputs[outputIndex]] = result[outputIndex]
         end
     end
+end
+
+function InferenceJob:_executeNode(node, specification, inputTensors)
+    local result = specification.execute(inputTensors, node.attributes)
+    self:_storeNodeResult(node, specification, result)
 end
 
 function InferenceJob:step(budget)
@@ -72,17 +82,87 @@ function InferenceJob:step(budget)
 
     local work = 0
     local nodes = self.session.model.graph.nodes
-    while work < budget and self.cursor <= #nodes do
-        local node = nodes[self.cursor]
-        local ok, err = pcall(function() self:_executeNode(node) end)
-        if not ok then
-            self.state = "failed"
-            self.errorMessage = tostring(err)
-            self.values = nil
-            error(err)
+    while work < budget and (self.cursor <= #nodes or self.activeNode ~= nil) do
+        if self.activeNode == nil then
+            local node = nodes[self.cursor]
+            local prepareOK, specification, inputTensors = pcall(function()
+                return self:_prepareNode(node)
+            end)
+            if not prepareOK then
+                self.state = "failed"
+                self.errorMessage = tostring(specification)
+                self.values = nil
+                error(specification)
+            end
+
+            if specification.begin ~= nil and specification.step ~= nil then
+                local beginOK, state = pcall(function()
+                    return specification.begin(inputTensors, node.attributes)
+                end)
+                if not beginOK then
+                    self.state = "failed"
+                    self.errorMessage = tostring(state)
+                    self.values = nil
+                    error(state)
+                end
+                self.activeNode = {
+                    node = node,
+                    specification = specification,
+                    inputTensors = inputTensors,
+                    state = state,
+                }
+            else
+                local executeOK, err = pcall(function()
+                    self:_executeNode(node, specification, inputTensors)
+                end)
+                if not executeOK then
+                    self.state = "failed"
+                    self.errorMessage = tostring(err)
+                    self.values = nil
+                    error(err)
+                end
+                self.cursor = self.cursor + 1
+                work = work + 1
+            end
         end
-        self.cursor = self.cursor + 1
-        work = work + 1
+
+        if self.activeNode ~= nil and work < budget then
+            local active = self.activeNode
+            local stepOK, result, kernelWork, done = pcall(function()
+                return active.specification.step(active.inputTensors,
+                    active.node.attributes, active.state, InferenceJob.KERNEL_WORK_BUDGET)
+            end)
+            if not stepOK then
+                self.state = "failed"
+                self.errorMessage = tostring(result)
+                self.values = nil
+                self.activeNode = nil
+                error(result)
+            end
+            if type(kernelWork) ~= "number" or kernelWork < 0 or
+                kernelWork ~= math.floor(kernelWork) then
+                self.state = "failed"
+                self.errorMessage = "PZONNX resumable operator returned invalid work"
+                self.values = nil
+                self.activeNode = nil
+                error(self.errorMessage)
+            end
+            if kernelWork == 0 and not done then
+                self.state = "failed"
+                self.errorMessage = "PZONNX resumable operator made no progress"
+                self.values = nil
+                self.activeNode = nil
+                error(self.errorMessage)
+            end
+            work = work + 1
+            if done then
+                self:_storeNodeResult(active.node, active.specification, result)
+                self.activeNode = nil
+                self.cursor = self.cursor + 1
+            else
+                break
+            end
+        end
     end
 
     if self.cursor > #nodes then
@@ -109,6 +189,7 @@ function InferenceJob:cancel()
     self.state = "cancelled"
     self.values = nil
     self.outputs = nil
+    self.activeNode = nil
     return true
 end
 

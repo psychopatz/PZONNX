@@ -15,6 +15,8 @@ configurable keybinds.
 - Open the Core command hub and choose the PZONNX chat probe.
 - Open the Psychopatz Debug Hub and launch `PZONNX Tiny-LLM Chat Probe`.
 - The public client entry point is `PZONNXChatUI.Open()`.
+- Run advances one scheduler step per game tick; the Cancel button releases a
+  long-running job without closing the window.
 
 ## Model and input
 
@@ -25,8 +27,8 @@ media/pzonnx/models/tiny_llm/model_int8.onnx
 ```
 
 The linked `onnx-community/Tiny-LLM-ONNX` `model_int8.onnx` file is a local,
-ignored model asset. It must be copied into that relative mod path before the
-game can load it. The runtime performs no network access.
+ignored model asset. It must be copied into the relative mod path before the
+game can load it. Runtime performs no network access.
 
 The probe accepts comma-separated integer token IDs. It does not claim to be a
 tokenizer: prompt text is retained as a transcript label only. For the linked
@@ -35,9 +37,10 @@ decoder export, the adapter supplies `input_ids`, `attention_mask`,
 sequence position from the `logits` output and displays the selected token ID
 and logit.
 
-Model loading rejects a non-empty compatibility report. Inference is stepped
-four graph nodes per `OnTick`, and failed input, unsupported shape, unsupported
-operator, and invalid output conditions are shown explicitly in the window.
+Model loading rejects a non-empty compatibility report. Inference advances one
+scheduler step per `OnTick`, including resumable matrix-kernel chunks; failed
+input, unsupported shape, unsupported operator, and invalid output conditions
+are shown explicitly in the window.
 
 ## Evidence boundary
 

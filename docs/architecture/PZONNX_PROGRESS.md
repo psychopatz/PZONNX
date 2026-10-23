@@ -268,9 +268,9 @@ adapter in `media/lua/shared/PZONNX/Adapters/Chat.lua`.
   dependency is introduced. Unsupported model compatibility, malformed token
   IDs, invalid cache shapes, invalid output shapes, and job failures fail
   explicitly in the panel.
-- **source-verified:** inference is cooperative (`InferenceJob:step(4)` per
-  `OnTick`) and the adapter keeps weights lazy/packed through the existing
-  session path.
+- **source-verified:** inference is cooperative (`InferenceJob:step(1)` per
+  `OnTick`) and MatMul/MatMulInteger kernels yield after bounded chunks; the
+  adapter keeps weights lazy/packed through the existing session path.
 - **host/reference verified:** `tests/test_chat_adapter.lua` passes on the
   bundled P5 fixture; the same adapter was run against the linked real model
   with profile `decoder-cache`, `sequenceLength=1`, `cacheCount=2`, 408
@@ -299,3 +299,29 @@ Command Hub. The client probe now registers in both hubs, retains the F8
 keybind, and emits `chat_ui=registered` so the next native log can distinguish
 client registration from shared-runtime startup. Native UI display and real
 model inference remain open until the corrected client is loaded and exercised.
+
+## Native feedback correction — resumable heavy-kernel execution — 2026-10-23
+
+The corrected native run reached the Core-backed chat window and loaded the
+linked model, but the first inference attempt made Project Zomboid appear
+unresponsive. This was not accepted as normal behavior. The model's final
+`MatMulInteger` projects 192 hidden values to 32,000 logits, requiring about
+6.1 million multiply-accumulates for one token. The previous scheduler yielded
+only between complete graph nodes, so one large operator could still monopolize
+the game thread.
+
+The runtime now exposes resumable `Tensor.beginMatmul`/
+`Tensor.beginMatmulInteger` state and bounded `Tensor.stepMatmul` chunks;
+`InferenceJob` preserves the active operator across calls with a 4,096
+multiply-accumulate kernel budget. The chat UI advances one scheduler step per
+`OnTick` and provides an explicit Cancel action. `Session:run` continues until
+its resumable job completes, preserving the synchronous API contract.
+
+- **host/reference verified:** the linked model completes in 2,072 scheduler
+  steps with cursor 409 and returns token ID `9309`, logit
+  `11.559551055381`, matching the previous host result.
+- **host/reference verified:** focused resumable MatMul test, all P0-P8 tests,
+  Lua compilation, and Kahlua verification pass.
+- **open native gate:** the next stock-PZ run must confirm that the game remains
+  responsive during sliced inference and that Cancel releases the job; no
+  native non-freeze or in-game numerical acceptance is claimed yet.

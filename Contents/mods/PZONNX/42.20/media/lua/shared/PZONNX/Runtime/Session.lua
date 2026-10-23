@@ -63,8 +63,8 @@ end
 function Session:run(inputs)
     local job = self:newJob(inputs)
     local result = job:step(math.max(1, #self.model.graph.nodes))
-    if not result.done then
-        error("PZONNX Session.run did not complete its bounded job")
+    while not result.done do
+        result = job:step(math.max(1, #self.model.graph.nodes))
     end
     return result.outputs
 end

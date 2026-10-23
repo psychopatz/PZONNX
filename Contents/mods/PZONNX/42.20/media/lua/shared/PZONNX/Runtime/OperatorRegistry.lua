@@ -35,6 +35,12 @@ Registry.register("", "MatMul", {
     inputCount = 2,
     outputCount = 1,
     acceptsAttributes = false,
+    begin = function(inputs)
+        return Tensor.beginMatmul(inputs[1], inputs[2])
+    end,
+    step = function(_, _, state, budget)
+        return Tensor.stepMatmul(state, budget)
+    end,
     execute = function(inputs)
         return Tensor.matmul(inputs[1], inputs[2])
     end,
@@ -44,6 +50,12 @@ Registry.register("", "MatMulInteger", {
     inputCount = 4,
     outputCount = 1,
     acceptsAttributes = false,
+    begin = function(inputs)
+        return Tensor.beginMatmulInteger(inputs[1], inputs[2], inputs[3], inputs[4])
+    end,
+    step = function(_, _, state, budget)
+        return Tensor.stepMatmul(state, budget)
+    end,
     execute = function(inputs)
         return Tensor.matmulInteger(inputs[1], inputs[2], inputs[3], inputs[4])
     end,

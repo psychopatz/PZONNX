@@ -690,7 +690,7 @@ local function matmulUnravel(index, shape)
     return coordinates
 end
 
-local function matmulGeneric(left, right, integerMode, leftZeroPoint, rightZeroPoint)
+local function createMatmulState(left, right, integerMode, leftZeroPoint, rightZeroPoint)
     local leftRank = #left.shape
     local rightRank = #right.shape
     if leftRank < 1 or rightRank < 1 then error("PZONNX MatMul requires rank >= 1 tensors") end
@@ -715,56 +715,140 @@ local function matmulGeneric(left, right, integerMode, leftZeroPoint, rightZeroP
     matrixShape[#matrixShape + 1] = leftM
     matrixShape[#matrixShape + 1] = rightN
     local count = validateShape(matrixShape)
-    local values = {}
-    for outputIndex = 1, count do
-        local coordinates = matmulUnravel(outputIndex, matrixShape)
-        local row = coordinates[batchRank + 1]
-        local column = coordinates[batchRank + 2]
-        local sum = 0
-        for shared = 1, leftK do
+    local outputShape = {}
+    for i = 1, #matrixShape do outputShape[i] = matrixShape[i] end
+    if leftRank == 1 then table.remove(matrixShape, batchRank + 1) end
+    if rightRank == 1 then table.remove(matrixShape, #matrixShape) end
+    if leftRank == 1 then table.remove(outputShape, batchRank + 1) end
+    if rightRank == 1 then table.remove(outputShape, #outputShape) end
+    return {
+        left = left,
+        right = right,
+        leftRank = leftRank,
+        rightRank = rightRank,
+        leftK = leftK,
+        leftBatch = leftBatch,
+        rightBatch = rightBatch,
+        batchRank = batchRank,
+        matrixShape = matrixShape,
+        outputShape = outputShape,
+        outputCount = count,
+        values = {},
+        outputIndex = 1,
+        shared = 1,
+        coordinates = nil,
+        sum = 0,
+        integerMode = integerMode == true,
+        leftZeroPoint = leftZeroPoint,
+        rightZeroPoint = rightZeroPoint,
+        dataType = integerMode and 6 or 1,
+    }
+end
+
+local function stepMatmulState(state, budget)
+    local work = 0
+    while work < budget and state.outputIndex <= state.outputCount do
+        if state.coordinates == nil then
+            state.coordinates = matmulUnravel(state.outputIndex, state.matrixShape)
+            state.row = state.coordinates[state.batchRank + 1]
+            state.column = state.coordinates[state.batchRank + 2]
+            state.shared = 1
+            state.sum = 0
+        end
+
+        if state.leftK == 0 then
+            state.values[state.outputIndex] = 0
+            state.outputIndex = state.outputIndex + 1
+            state.coordinates = nil
+        else
             local leftCoordinates = {}
-            for dimension = 1, #leftBatch do
-                local outputDimension = dimension + batchRank - #leftBatch
-                local coordinate = coordinates[outputDimension]
-                if leftBatch[dimension] == 1 then coordinate = 0 end
+            for dimension = 1, #state.leftBatch do
+                local outputDimension = dimension + state.batchRank - #state.leftBatch
+                local coordinate = state.coordinates[outputDimension]
+                if state.leftBatch[dimension] == 1 then coordinate = 0 end
                 leftCoordinates[dimension] = coordinate
             end
-            if leftRank == 1 then
-                leftCoordinates[1] = shared - 1
+            if state.leftRank == 1 then
+                leftCoordinates[1] = state.shared - 1
             else
-                leftCoordinates[#leftCoordinates + 1] = row
-                leftCoordinates[#leftCoordinates + 1] = shared - 1
+                leftCoordinates[#leftCoordinates + 1] = state.row
+                leftCoordinates[#leftCoordinates + 1] = state.shared - 1
             end
 
             local rightCoordinates = {}
-            for dimension = 1, #rightBatch do
-                local outputDimension = dimension + batchRank - #rightBatch
-                local coordinate = coordinates[outputDimension]
-                if rightBatch[dimension] == 1 then coordinate = 0 end
+            for dimension = 1, #state.rightBatch do
+                local outputDimension = dimension + state.batchRank - #state.rightBatch
+                local coordinate = state.coordinates[outputDimension]
+                if state.rightBatch[dimension] == 1 then coordinate = 0 end
                 rightCoordinates[dimension] = coordinate
             end
-            if rightRank == 1 then
-                rightCoordinates[1] = shared - 1
+            if state.rightRank == 1 then
+                rightCoordinates[1] = state.shared - 1
             else
-                rightCoordinates[#rightCoordinates + 1] = shared - 1
-                rightCoordinates[#rightCoordinates + 1] = column
+                rightCoordinates[#rightCoordinates + 1] = state.shared - 1
+                rightCoordinates[#rightCoordinates + 1] = state.column
             end
 
-            local leftValue = Tensor.valueAt(left, matmulFlatIndex(leftCoordinates, left.shape))
-            local rightValue = Tensor.valueAt(right, matmulFlatIndex(rightCoordinates, right.shape))
-            if integerMode then
-                local leftZero = Tensor.valueAt(leftZeroPoint, 1)
-                local rightZero = Tensor.valueAt(rightZeroPoint, rightZeroPoint:elementCount() == 1 and 1 or column)
-                sum = sum + (leftValue - leftZero) * (rightValue - rightZero)
+            local leftValue = Tensor.valueAt(state.left,
+                matmulFlatIndex(leftCoordinates, state.left.shape))
+            local rightValue = Tensor.valueAt(state.right,
+                matmulFlatIndex(rightCoordinates, state.right.shape))
+            if state.integerMode then
+                local leftZero = Tensor.valueAt(state.leftZeroPoint, 1)
+                local rightZero = Tensor.valueAt(state.rightZeroPoint,
+                    state.rightZeroPoint:elementCount() == 1 and 1 or state.column + 1)
+                state.sum = state.sum + (leftValue - leftZero) * (rightValue - rightZero)
             else
-                sum = sum + leftValue * rightValue
+                state.sum = state.sum + leftValue * rightValue
+            end
+            state.shared = state.shared + 1
+            work = work + 1
+            if state.shared > state.leftK then
+                state.values[state.outputIndex] = state.sum
+                state.outputIndex = state.outputIndex + 1
+                state.coordinates = nil
             end
         end
-        values[outputIndex] = sum
     end
-    if leftRank == 1 then table.remove(matrixShape, batchRank + 1) end
-    if rightRank == 1 then table.remove(matrixShape, #matrixShape) end
-    return Tensor.new(matrixShape, values, integerMode and 6 or 1)
+
+    if state.outputIndex > state.outputCount then
+        return Tensor.new(state.outputShape, state.values, state.dataType), work, true
+    end
+    return nil, work, false
+end
+
+function Tensor.beginMatmul(left, right)
+    assert(Tensor.isTensor(left) and Tensor.isTensor(right),
+        "PZONNX MatMul requires tensors")
+    return createMatmulState(left, right, false)
+end
+
+function Tensor.beginMatmulInteger(left, right, leftZeroPoint, rightZeroPoint)
+    assert(Tensor.isTensor(left) and Tensor.isTensor(right) and
+        Tensor.isTensor(leftZeroPoint) and Tensor.isTensor(rightZeroPoint),
+        "PZONNX MatMulInteger requires tensors")
+    return createMatmulState(left, right, true, leftZeroPoint, rightZeroPoint)
+end
+
+function Tensor.stepMatmul(state, budget)
+    assert(type(state) == "table" and type(budget) == "number" and budget > 0 and
+        budget == math.floor(budget),
+        "PZONNX MatMul step budget must be a positive integer")
+    return stepMatmulState(state, budget)
+end
+
+local function matmulGeneric(left, right, integerMode, leftZeroPoint, rightZeroPoint)
+    local state
+    if integerMode then
+        state = Tensor.beginMatmulInteger(left, right, leftZeroPoint, rightZeroPoint)
+    else
+        state = Tensor.beginMatmul(left, right)
+    end
+    local result
+    while result == nil do
+        result = Tensor.stepMatmul(state, 1000000000)
+    end
+    return result
 end
 
 function Tensor.matmul(left, right)

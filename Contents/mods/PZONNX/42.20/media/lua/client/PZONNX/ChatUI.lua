@@ -40,6 +40,7 @@ end
 PZONNXChatWindow = UI.Window:derive("PZONNXChatWindow")
 PZONNXChatWindow.instance = nil
 PZONNXChatWindow.MODEL_PATH = "media/pzonnx/models/tiny_llm/model_int8.onnx"
+PZONNXChatWindow.FRAME_BUDGET = 1
 
 function PZONNXChatWindow:initialise()
     UI.Window.initialise(self)
@@ -92,6 +93,13 @@ function PZONNXChatWindow:createChildren()
         title = tr("UI_PZONNX_Chat_Clear", "Clear"),
         target = self,
         onclick = PZONNXChatWindow.onClear,
+        variant = "quiet",
+    })
+    self.cancelButton = UI.CreateButton(self, {
+        id = "cancel-inference",
+        title = tr("UI_PZONNX_Chat_Cancel", "Cancel"),
+        target = self,
+        onclick = PZONNXChatWindow.onCancel,
         variant = "quiet",
     })
 
@@ -196,7 +204,7 @@ function PZONNXChatWindow:onSend()
     self:appendTranscript("user: " .. tostring(self.pendingPrompt)
         .. "\ntokens: " .. tostring(self.tokenEntry:getText()))
     self:setStatus("Running " .. tostring(profileOrError.mode)
-        .. " inference; nodes are stepped cooperatively.")
+        .. " inference; nodes and matrix kernels are stepped cooperatively.")
 end
 
 function PZONNXChatWindow:finishInference(result)
@@ -219,7 +227,7 @@ function PZONNXChatWindow:finishInference(result)
         .. "\nlogit = " .. tostring(nextToken.logit)
         .. "\noutput = " .. tostring(nextToken.outputName))
     self:setStatus("Completed " .. tostring(self.inferenceWork)
-        .. " node steps for " .. tostring(pendingPrompt) .. ".")
+        .. " scheduler steps for " .. tostring(pendingPrompt) .. ".")
     self.activeJob = nil
     self.pendingPrompt = nil
     self.pendingProfile = nil
@@ -228,7 +236,8 @@ end
 
 function PZONNXChatWindow:stepInference()
     if self.activeJob == nil then return end
-    local ok, result = pcall(self.activeJob.step, self.activeJob, 4)
+    local ok, result = pcall(self.activeJob.step, self.activeJob,
+        PZONNXChatWindow.FRAME_BUDGET)
     if not ok then
         self:setStatus("Inference failed explicitly: " .. tostring(result))
         self:appendTranscript("system: inference failed: " .. tostring(result))
@@ -240,6 +249,20 @@ function PZONNXChatWindow:stepInference()
     end
     self.inferenceWork = self.inferenceWork + (result.work or 0)
     if result.done then self:finishInference(result) end
+end
+
+function PZONNXChatWindow:onCancel()
+    if self.activeJob == nil then
+        self:setStatus("No inference job is running.")
+        return
+    end
+    self.activeJob:cancel()
+    self.activeJob = nil
+    self.pendingPrompt = nil
+    self.pendingProfile = nil
+    self.inferenceWork = 0
+    self:setStatus("Inference cancelled and temporary tensors released.")
+    self:appendTranscript("system: inference cancelled")
 end
 
 function PZONNXChatWindow:onClear()
@@ -273,7 +296,12 @@ function PZONNXChatWindow:onResponsiveLayout()
     local footerY = rect.y + rect.height - rowHeight
     Layout.SetBounds(self.transcript, rect.x, transcriptY, rect.width,
         math.max(rowHeight, footerY - transcriptY - gap))
-    Layout.SetBounds(self.clearButton, rect.x, footerY, actionWidth, rowHeight)
+    local footerGap = Layout.Pixels(6, scale)
+    local footerButtonWidth = math.floor((rect.width - footerGap) / 2)
+    Layout.SetBounds(self.cancelButton, rect.x, footerY,
+        footerButtonWidth, rowHeight)
+    Layout.SetBounds(self.clearButton, rect.x + footerButtonWidth + footerGap,
+        footerY, footerButtonWidth, rowHeight)
     self.layoutRect = rect
     self.labelWidth = labelWidth
 end
