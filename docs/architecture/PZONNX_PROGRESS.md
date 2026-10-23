@@ -114,9 +114,22 @@ Do not implement tokenizer/generation/UI redesign in this chunk.
 - validation: all existing host tests, P9A tests, Lua syntax checks, `git diff --check`, and PZ Kahlua compatibility checks pass;
 - open native gate: the stock-PZ user ledger probe and sliced real-model responsiveness/cancellation still require live evidence; no PZ runtime acceptance is claimed.
 
-## Exact Next Chunk — P9B ModelPackage
+## Completed Developer Chunk — P9B ModelPackage — 2026-10-23
 
-Implement a lazy model-package abstraction over a registered P9A entry. It must resolve the user model root safely, expose package-relative companion metadata/data paths without directory enumeration, distinguish the primary ONNX file from optional external data/tokenizer/config files, and preserve missing/invalid diagnostics. Add focused host tests and a bounded native package probe. Do not parse every registered model or claim model profiling/generation yet.
+Implemented a lazy model-package abstraction over a registered P9A entry. It derives the safe package root, exposes a fixed known companion-name contract without directory enumeration, preserves missing companion diagnostics, and resolves external ONNX data relative to the model/package while remaining inside the approved user root. Public `getModelPackage()` and package capabilities are available. The bounded P9B probe instantiates descriptors for registered entries only; it does not inspect companion files or parse ONNX graphs.
+
+Evidence:
+
+- source-verified: package construction requires `REGISTERED` entries and derives `Models/<package>/` from the ledger path;
+- source-verified: companion access is explicit and fixed-name only; no arbitrary directory enumeration is introduced;
+- source-verified: external-data traversal, absolute, drive, and network paths are rejected by the shared user-file boundary;
+- host/reference verified: P9B tests cover lazy construction, companion presence/missing status, fixed-name probing, and package-relative external-data resolution;
+- source-verified: bounded `P9BProbe` is registered after the P9A refresh probe;
+- open native gate: stock-PZ package probe and sliced real-model responsiveness/cancellation remain unverified.
+
+## Exact Next Chunk — P9C ModelProfile
+
+Implement a model-independent `ModelProfile` discovery layer over a registered `ModelPackage`. Inspect explicit companion configuration first, then standard metadata, then ONNX graph names/shapes/types/structure, and preserve unknown fields as unknown rather than guessing. Capture task/architecture, input/output roles, token and KV patterns, context/vocabulary metadata, external-data requirements, required operators/datatypes, compatibility, evidence, and confidence. Add focused host fixtures/tests and a bounded profile probe; TinyLLM must remain a regression fixture, not a family-specific execution branch.
 
 ## Following chunks
 
