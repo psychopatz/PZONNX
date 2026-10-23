@@ -127,9 +127,22 @@ Evidence:
 - source-verified: bounded `P9BProbe` is registered after the P9A refresh probe;
 - open native gate: stock-PZ package probe and sliced real-model responsiveness/cancellation remain unverified.
 
-## Exact Next Chunk — P9C ModelProfile
+## Completed Developer Chunk — P9C ModelProfile — 2026-10-23
 
-Implement a model-independent `ModelProfile` discovery layer over a registered `ModelPackage`. Inspect explicit companion configuration first, then standard metadata, then ONNX graph names/shapes/types/structure, and preserve unknown fields as unknown rather than guessing. Capture task/architecture, input/output roles, token and KV patterns, context/vocabulary metadata, external-data requirements, required operators/datatypes, compatibility, evidence, and confidence. Add focused host fixtures/tests and a bounded profile probe; TinyLLM must remain a regression fixture, not a family-specific execution branch.
+Implemented model-independent profile discovery over a registered `ModelPackage`. Explicit config and generation metadata are inspected before generic graph evidence; input/output role detection uses names/shapes/types; external-data requirements, operators, datatypes, compatibility, tokenizer presence, evidence, confidence, and unknown fields are retained. Profile parsing is explicit (`getModelProfile()`); the startup probe remains lazy and does not parse user models. TinyLLM is not referenced by the profile implementation.
+
+Evidence:
+
+- source-verified: `Models/ModelProfile.lua` consumes the existing generic `Model.parseReader` result and does not select model families;
+- source-verified: explicit `config.json`/`generation_config.json` scalar metadata has priority over graph fallback, while absent task/architecture/context/vocabulary/KV data remains unknown;
+- source-verified: profile graph evidence records generic input/output roles, required operators, required datatypes, compatibility, and external-data path diagnostics;
+- host/reference verified: P9C tests exercise explicit config precedence, token metadata, graph evidence, tokenizer absence, confidence, and unknown-task preservation;
+- source-verified: bounded `P9CProbe` reports registered-profile availability without parsing every model at startup;
+- open native gate: explicit user-model profile parsing and sliced real-model responsiveness/cancellation still require stock-PZ evidence.
+
+## Exact Next Chunk — P9D Generic Model Probe
+
+Implement a reusable compatibility probe accepting any registered `ModelPackage` and emitting parse result, `ModelProfile`, opsets/operators/datatypes, external-data requirements, tokenizer status, generation-contract status, execution gaps, and optional bounded forward-pass evidence. Keep model parsing/profile inspection explicit and bounded; do not turn the probe into a startup sweep. TinyLLM remains one regression input only.
 
 ## Following chunks
 

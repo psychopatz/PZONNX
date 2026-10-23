@@ -11,6 +11,7 @@ local P7Probe = require "PZONNX/Diagnostics/P7Probe"
 local P8Probe = require "PZONNX/Diagnostics/P8Probe"
 local P9AProbe = require "PZONNX/Diagnostics/P9AProbe"
 local P9BProbe = require "PZONNX/Diagnostics/P9BProbe"
+local P9CProbe = require "PZONNX/Diagnostics/P9CProbe"
 local TinyTTS = require "PZONNX/Adapters/TinyTTS"
 local Model = require "PZONNX/ONNX/Model"
 local Session = require "PZONNX/Runtime/Session"
@@ -22,6 +23,7 @@ local Fallback = require "PZONNX/Adapters/Fallback"
 local UserFile = require "PZONNX/IO/UserFile"
 local ModelStore = require "PZONNX/Models/ModelStore"
 local ModelPackage = require "PZONNX/Models/ModelPackage"
+local ModelProfile = require "PZONNX/Models/ModelProfile"
 
 local PZONNX = {
     VERSION = "0.0.1",
@@ -63,6 +65,8 @@ function PZONNX.getCapabilities()
         p9aProbe = true,
         modelPackage = true,
         p9bProbe = true,
+        modelProfile = true,
+        p9cProbe = true,
         p2Probe = true,
         llm = false,
         tts = false,
@@ -117,6 +121,10 @@ function PZONNX.runP9BProbe()
     return P9BProbe.run()
 end
 
+function PZONNX.runP9CProbe()
+    return P9CProbe.run()
+end
+
 function PZONNX.refreshModels()
     return ModelStore.refresh()
 end
@@ -135,6 +143,10 @@ end
 
 function PZONNX.getModelPackage(idOrPath)
     return ModelPackage.forEntry(idOrPath)
+end
+
+function PZONNX.getModelProfile(idOrPath)
+    return ModelProfile.forEntry(idOrPath)
 end
 
 function PZONNX.loadModel(relativePath)
@@ -189,5 +201,6 @@ PZONNX.Fallback = Fallback
 PZONNX.UserFile = UserFile
 PZONNX.ModelStore = ModelStore
 PZONNX.ModelPackage = ModelPackage
+PZONNX.ModelProfile = ModelProfile
 
 return PZONNX

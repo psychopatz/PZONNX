@@ -109,6 +109,15 @@ function ModelPackage:openCompanion(name)
     return UserFile.open(joinRelative(self.modelRoot, name))
 end
 
+function ModelPackage:openModel()
+    return UserFile.open(self.modelPath)
+end
+
+function ModelPackage:withModelReader(callback)
+    assert(type(callback) == "function", "PZONNX ModelPackage reader requires a callback")
+    return UserFile.withReader(self.modelPath, callback)
+end
+
 function ModelPackage:readCompanionText(name, limit)
     assertCompanionName(name)
     return UserFile.tryReadText(joinRelative(self.modelRoot, name), limit)
