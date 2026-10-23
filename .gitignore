@@ -1,0 +1,16 @@
+# Development-only caches
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local IDE/editor state
+.idea/
+.vscode/
+
+# Generated/large local experiment output
+artifacts/
+models/
+
+# OS noise
+.DS_Store
+Thumbs.db
