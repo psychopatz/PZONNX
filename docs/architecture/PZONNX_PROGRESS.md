@@ -1,6 +1,6 @@
 # PZONNX Progress
 
-Last reconciled: model-agnostic generative-runtime phase transition after native GUI/performance feedback.
+Last reconciled: real multi-family reference evidence and generic compatibility expansion.
 
 ## Parent goal
 
@@ -10,7 +10,7 @@ Parent state: **IN PROGRESS**.
 
 ## Current major phase
 
-**P9 — Model Store & Model-Agnostic Discovery**
+**P14-P17 — Measured Generative Runtime & Product Integration**
 
 State: **ACTIVE**.
 
@@ -237,6 +237,7 @@ Evidence:
 - source-verified: `Generator` consumes only Decoder/Tokenizer/Sampler contracts and returns explicit phase, progress, text, token, stopping, and cancellation state;
 - source-verified: `PZONNX.newGeneratorForEntry()` loads a ledger-backed package, profile, model, session, decoder, tokenizer, and sampler through the generic path; `generateText()` is available for bounded host/reference use;
 - host/reference verified: P16 tests cover prefill sampling, repeated decode, generated-text decoding, max-token stopping, zero-length stopping, and cancellation;
+- real-model host/reference verified: the local 408-node quantized TinyLLM package was loaded through the user-file adapter and generic profile/tokenizer/generator path; `hello` tokenized to 2 IDs and one sampled token decoded to `to` after 3,384 bounded scheduler steps (developer host evidence only);
 - open native gates: live user-package generation, game-thread responsiveness/cancellation, and the P16 Core-backed chat surface remain unverified in stock PZ.
 
 ## Exact Next Chunk — P16 Core-Backed Generative Chat Surface
@@ -253,7 +254,7 @@ Evidence:
 - source-verified: the generation window is ledger-backed and does not expose packaged fixture/model paths as the user model architecture;
 - host/reference verified: all repository Lua host tests pass, including P16 generator tests; PZ Kahlua verification reports 0 errors and 0 warnings across 50 scanned files;
 - open native gates: the Core-backed window, a live user package, readable native generation, and sliced real-model responsiveness/cancellation still require stock-PZ evidence;
-- partial: P15 still lacks a second real decoder family with reference-consistent generation, so the parent objective remains open.
+- P15 developer evidence is now present for two real decoder families, but this does not claim native PZ acceptance.
 
 ## Completed Developer Chunk — P17 Model-Agnostic TTS / Pipeline Boundary — 2026-10-23
 
@@ -265,11 +266,24 @@ Evidence:
 - source-verified: `newPipelineForEntry()` composes the existing ledger-backed generator with caller-owned TTS without coupling the LLM runtime to a TTS family;
 - host/reference verified: P17 tests cover text-only output, bounded generation-to-audio transition, audio result shape, cancellation, and explicit missing-provider failure;
 - validation: all repository Lua host tests pass; PZ Kahlua verification reports 0 errors and 0 warnings across 52 scanned files;
-- partial/open: no selected real TTS pipeline is accepted, and P15 multi-family generation plus native package/responsiveness gates remain open.
+- partial/open: no selected real TTS pipeline is accepted, and native package/responsiveness gates remain open.
 
-## Exact Next Chunk — P15 Real Multi-Family Evidence
+## Completed Developer Chunk — P15 Real Multi-Family Reference Evidence — 2026-10-23
 
-Continue the open P15 gate with at least one additional structurally distinct real decoder export and trusted reference vectors through the generic profile/tokenizer/generator path. If a compatible second family cannot be safely demonstrated from available development-time artifacts, preserve that smallest evidence gap while continuing native responsiveness and user-package verification work.
+Expanded generic execution and tokenizer coverage from evidence supplied by a second real decoder family. The runtime now includes model-independent `Identity`, `Sub`, `Less`, `Tanh`, `Gemm`, `Split`, `Squeeze`, and optional-axes `ReduceMean` support, plus the ByteLevel BPE subset required by the GPT-2-family tokenizer. No model-name execution branches were added.
+
+Evidence:
+
+- host/reference verified: the local 408-node quantized TinyLLM package completed generic one-token generation for `hello`, producing token ID `304` (`to`) after 3,384 bounded scheduler steps; development-time ONNX Runtime selected the same ID;
+- host/reference verified: the real `onnx-community/tiny-gpt2-ONNX` package completed generic one-token generation for `Hello`, producing token ID `10209` (`Ġviewers`, decoded as ` viewers`) after 452 bounded scheduler steps; development-time ONNX Runtime selected the same ID;
+- real-model metadata verified: the GPT-2 package has 475 nodes, 11 inputs, 9 outputs, and 8 KV input/output pairs; it is not a TinyLLM graph or adapter;
+- structural compatibility verified: a third real GPT-2 decoder export was profiled at 1,372 nodes with 2 inputs, 11 outputs, no past-cache inputs, and 10 cache-like outputs; it remains an actionable incomplete stateless-generation contract rather than a false compatibility pass;
+- host tests cover the new tensor/operator primitives and ByteLevel tokenizer vector; all repository tests and Kahlua checks pass;
+- open native/performance gates: these are source/host/reference results only. Native PZ generation, cancellation responsiveness, and acceptable elapsed time remain unverified; the GPT-2 host run was multi-minute and is not presented as interactive performance.
+
+## Exact Next Chunk — P14C Measured Hotspot Optimization / Native-Ready Responsiveness
+
+Use the bounded profiler on the same real-model vectors, identify the dominant operator and allocation costs, and implement only measured behavior-preserving optimizations. Add before/after work and elapsed-time evidence, preserve resumable/cancellable scheduling below whole-node granularity, and keep the stock-PZ responsiveness gate open until live evidence exists.
 
 ## Following chunks
 

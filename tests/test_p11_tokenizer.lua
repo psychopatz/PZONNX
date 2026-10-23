@@ -49,4 +49,34 @@ if ok then
     error("P11 accepted an unsupported tokenizer model family")
 end
 
+local byteLevelSpace = string.char(196, 160)
+local byteLevel = {
+    model = {
+        type = "BPE",
+        vocab = {
+            H = 1, e = 2, l = 3, o = 4, w = 5, r = 6, d = 7,
+            [byteLevelSpace] = 8, He = 9, Hel = 10, Hell = 11, Hello = 12,
+            [byteLevelSpace .. "w"] = 13,
+            [byteLevelSpace .. "wo"] = 14,
+            [byteLevelSpace .. "wor"] = 15,
+            [byteLevelSpace .. "worl"] = 16,
+            [byteLevelSpace .. "world"] = 17,
+        },
+        merges = {
+            "H e", "He l", "Hel l", "Hell o",
+            byteLevelSpace .. " w", byteLevelSpace .. "w o", byteLevelSpace .. "wo r",
+            byteLevelSpace .. "wor l", byteLevelSpace .. "worl d",
+        },
+    },
+    pre_tokenizer = { type = "ByteLevel", add_prefix_space = false },
+    post_processor = { type = "ByteLevel" },
+    decoder = { type = "ByteLevel" },
+}
+local byteTokenizer = Tokenizer.fromDocument(byteLevel)
+local byteIds = byteTokenizer:encode("Hello world")
+if #byteIds ~= 2 or byteIds[1] ~= 12 or byteIds[2] ~= 17 or
+        byteTokenizer:decode(byteIds) ~= "Hello world" then
+    error("P11 ByteLevel BPE vector did not round-trip")
+end
+
 print("PZONNX P11 tokenizer tests passed")

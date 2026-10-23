@@ -43,7 +43,7 @@ local Pipeline = require "PZONNX/Runtime/Pipeline"
 
 local PZONNX = {
     VERSION = "0.0.1",
-    PHASE = "P16",
+    PHASE = "P17",
     Log = Log,
 }
 
@@ -96,6 +96,7 @@ function PZONNX.getCapabilities()
         p10Probe = true,
         tokenizerRuntime = true,
         tokenizerBPE = true,
+        tokenizerByteLevelBPE = true,
         p11Probe = true,
         decoderRuntime = true,
         kvCache = true,
@@ -107,7 +108,9 @@ function PZONNX.getCapabilities()
         storageMetrics = true,
         p14Probe = true,
         compatibilityMatrix = true,
+        genericOperatorExtensions = true,
         p15Probe = true,
+        p15RealFamilyReference = true,
         generator = true,
         textGenerationAPI = true,
         pipeline = true,
@@ -366,7 +369,9 @@ function PZONNX.getRuntimeStatus()
             P12 = "OPEN/UNVERIFIED",
             P13 = "OPEN/UNVERIFIED",
             P14 = "OPEN/UNVERIFIED",
-            P15 = "PARTIAL/REAL_FAMILIES_OPEN",
+            P15 = "PARTIAL/NATIVE_RESPONSIVENESS_OPEN",
+            P16 = "OPEN/UNVERIFIED",
+            P17 = "PARTIAL/TTS_ACCEPTANCE_OPEN",
         },
     }
 end

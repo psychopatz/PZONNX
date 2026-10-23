@@ -87,6 +87,75 @@ Registry.register("", "Add", {
     end,
 })
 
+Registry.register("", "Identity", {
+    inputCount = 1,
+    outputCount = 1,
+    acceptsAttributes = false,
+    execute = function(inputs) return inputs[1] end,
+})
+
+Registry.register("", "Sub", {
+    inputCount = 2,
+    outputCount = 1,
+    acceptsAttributes = false,
+    execute = function(inputs) return Tensor.sub(inputs[1], inputs[2]) end,
+})
+
+Registry.register("", "Less", {
+    inputCount = 2,
+    outputCount = 1,
+    acceptsAttributes = false,
+    execute = function(inputs) return Tensor.less(inputs[1], inputs[2]) end,
+})
+
+Registry.register("", "Tanh", {
+    inputCount = 1,
+    outputCount = 1,
+    acceptsAttributes = false,
+    execute = function(inputs) return Tensor.tanh(inputs[1]) end,
+})
+
+Registry.register("", "Gemm", {
+    inputCount = 3,
+    outputCount = 1,
+    acceptsAttributes = true,
+    execute = function(inputs, attributes)
+        return Tensor.gemm(inputs[1], inputs[2], inputs[3], attributes)
+    end,
+})
+
+Registry.register("", "Split", {
+    inputCount = nil,
+    outputCount = nil,
+    acceptsAttributes = true,
+    execute = function(inputs, attributes)
+        local axis = 0
+        local split = inputs[2]
+        for _, attribute in ipairs(attributes or {}) do
+            if attribute.name == "axis" and attribute.value ~= nil then axis = attribute.value end
+            if attribute.name == "split" and #attribute.values > 0 then
+                split = Tensor.new({ #attribute.values }, attribute.values, 7)
+            end
+        end
+        return Tensor.split(inputs[1], split, axis, nil)
+    end,
+})
+
+Registry.register("", "Squeeze", {
+    inputCount = nil,
+    outputCount = 1,
+    acceptsAttributes = true,
+    execute = function(inputs, attributes)
+        local axes = inputs[2]
+        for _, attribute in ipairs(attributes or {}) do
+            if attribute.name == "axes" and #attribute.values > 0 then
+                axes = Tensor.new({ #attribute.values }, attribute.values, 7)
+            end
+        end
+        return Tensor.squeeze(inputs[1], axes)
+    end,
+})
+
 Registry.register("", "Softmax", {
     inputCount = 1,
     outputCount = 1,
@@ -263,15 +332,20 @@ Registry.register("", "Concat", {
 })
 
 Registry.register("", "ReduceMean", {
-    inputCount = 2,
+    inputCount = nil,
     outputCount = 1,
     acceptsAttributes = true,
     execute = function(inputs, attributes)
         local keepDims = true
+        local axes = inputs[2]
         for i = 1, #attributes do
             if attributes[i].name == "keepdims" then keepDims = attributes[i].value ~= 0 end
+            if attributes[i].name == "axes" and #attributes[i].values > 0 then
+                axes = Tensor.new({ #attributes[i].values }, attributes[i].values, 7)
+            end
         end
-        return Tensor.reduceMean(inputs[1], inputs[2], keepDims)
+        if axes == nil then axes = Tensor.new({ 0 }, {}, 7) end
+        return Tensor.reduceMean(inputs[1], axes, keepDims)
     end,
 })
 

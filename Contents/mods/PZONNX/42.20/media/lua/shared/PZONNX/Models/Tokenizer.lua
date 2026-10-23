@@ -3,6 +3,34 @@ local Json = require "PZONNX/IO/Json"
 local Tokenizer = {}
 Tokenizer.__index = Tokenizer
 
+local function utf8Char(code)
+    if code < 128 then return string.char(code) end
+    if code < 2048 then
+        return string.char(192 + math.floor(code / 64), 128 + code % 64)
+    end
+    if code < 65536 then
+        return string.char(224 + math.floor(code / 4096),
+            128 + math.floor(code / 64) % 64, 128 + code % 64)
+    end
+    return string.char(240 + math.floor(code / 262144),
+        128 + math.floor(code / 4096) % 64,
+        128 + math.floor(code / 64) % 64, 128 + code % 64)
+end
+
+local byteToSymbol = {}
+local symbolToByte = {}
+for byte = 33, 126 do byteToSymbol[byte] = string.char(byte) end
+for byte = 161, 172 do byteToSymbol[byte] = utf8Char(byte) end
+for byte = 174, 255 do byteToSymbol[byte] = utf8Char(byte) end
+local nextCode = 0
+for byte = 0, 255 do
+    if byteToSymbol[byte] == nil then
+        byteToSymbol[byte] = utf8Char(256 + nextCode)
+        nextCode = nextCode + 1
+    end
+    symbolToByte[byteToSymbol[byte]] = byte
+end
+
 local function utf8Symbols(text)
     local symbols = {}
     local index = 1
@@ -53,7 +81,7 @@ end
 
 local function parseDecoder(document)
     local decoder = document.decoder
-    local result = { replace = {}, byteFallback = false, stripStart = 0, stripStop = 0 }
+    local result = { replace = {}, byteFallback = false, byteLevel = false, stripStart = 0, stripStop = 0 }
     if decoder == nil then return result end
     local components = decoder.type == "Sequence" and decoder.decoders or { decoder }
     for _, component in ipairs(components or {}) do
@@ -61,6 +89,8 @@ local function parseDecoder(document)
             table.insert(result.replace, { from = component.pattern.String, to = component.content or "" })
         elseif component.type == "ByteFallback" then
             result.byteFallback = true
+        elseif component.type == "ByteLevel" then
+            result.byteLevel = true
         elseif component.type == "Fuse" then
             -- Concatenation is the default decoder behavior.
         elseif component.type == "Strip" then
@@ -76,6 +106,7 @@ end
 local function parsePostProcessor(document, tokenizer)
     local processor = document.post_processor
     if processor == nil then return end
+    if processor.type == "ByteLevel" then return end
     if processor.type ~= "TemplateProcessing" then
         error("PZONNX tokenizer post-processor is unsupported: " .. tostring(processor.type))
     end
@@ -93,8 +124,16 @@ function Tokenizer.fromDocument(document, profile, profiler)
     if document.model.type ~= "BPE" then
         error("PZONNX tokenizer model is unsupported: " .. tostring(document.model.type))
     end
-    if document.pre_tokenizer ~= nil then
-        error("PZONNX tokenizer pre-tokenizer is unsupported")
+    local preTokenizer = document.pre_tokenizer
+    local byteLevelPreTokenizer = false
+    local byteLevelPrefix = false
+    if preTokenizer ~= nil then
+        if preTokenizer.type == "ByteLevel" then
+            byteLevelPreTokenizer = true
+            byteLevelPrefix = preTokenizer.add_prefix_space == true
+        else
+            error("PZONNX tokenizer pre-tokenizer is unsupported: " .. tostring(preTokenizer.type))
+        end
     end
     local vocab = document.model.vocab
     local merges = document.model.merges
@@ -115,6 +154,8 @@ function Tokenizer.fromDocument(document, profile, profiler)
         specialIds = {},
         normalizer = document.normalizer,
         decoder = parseDecoder(document),
+        preTokenizer = byteLevelPreTokenizer and "ByteLevel" or nil,
+        byteLevelPrefix = byteLevelPrefix,
         profiler = profiler,
     }, Tokenizer)
     for token, id in pairs(vocab) do
@@ -139,7 +180,9 @@ function Tokenizer.fromDocument(document, profile, profiler)
         if profile.bosToken ~= nil then tokenizer.bosTokenId = profile.bosToken end
         if type(profile.eosTokens) == "table" then tokenizer.eosTokenId = profile.eosTokens[1] end
     end
-    if tokenizer.unkTokenId == nil then error("PZONNX BPE tokenizer is missing unk_token") end
+    if tokenizer.unkTokenId == nil and tokenizer.preTokenizer ~= "ByteLevel" then
+        error("PZONNX BPE tokenizer is missing unk_token")
+    end
     return tokenizer
 end
 
@@ -180,18 +223,85 @@ local function mergeSymbols(tokenizer, symbols)
     end
 end
 
+local function isWhitespaceByte(byte)
+    return byte == 9 or byte == 10 or byte == 11 or byte == 12 or byte == 13 or byte == 32
+end
+
+local function isWordByte(byte)
+    return (byte >= 48 and byte <= 57) or (byte >= 65 and byte <= 90) or
+        (byte >= 97 and byte <= 122) or byte >= 128
+end
+
+local function byteLevelChunks(text, addPrefixSpace)
+    if addPrefixSpace and #text > 0 and not isWhitespaceByte(string.byte(text, 1)) then
+        text = " " .. text
+    end
+    local rawChunks = {}
+    local pending = ""
+    local index = 1
+    while index <= #text do
+        local byte = string.byte(text, index)
+        if isWhitespaceByte(byte) then
+            local start = index
+            repeat
+                index = index + 1
+                byte = string.byte(text, index)
+            until index > #text or not isWhitespaceByte(byte)
+            pending = pending .. string.sub(text, start, index - 1)
+        else
+            local word = isWordByte(byte)
+            local start = index
+            while index <= #text do
+                byte = string.byte(text, index)
+                if isWhitespaceByte(byte) or isWordByte(byte) ~= word then break end
+                if byte >= 128 then
+                    local width = byte >= 240 and 4 or (byte >= 224 and 3 or 2)
+                    index = index + width
+                else
+                    index = index + 1
+                end
+            end
+            table.insert(rawChunks, pending .. string.sub(text, start, index - 1))
+            pending = ""
+        end
+    end
+    if pending ~= "" then table.insert(rawChunks, pending) end
+
+    local chunks = {}
+    for _, raw in ipairs(rawChunks) do
+        local symbols = {}
+        for byteIndex = 1, #raw do
+            table.insert(symbols, byteToSymbol[string.byte(raw, byteIndex)])
+        end
+        table.insert(chunks, symbols)
+    end
+    return chunks
+end
+
 function Tokenizer:encode(text, options)
     assert(type(text) == "string", "PZONNX tokenizer encode requires text")
     options = options or {}
     local normalized = applyNormalizer(text, self.normalizer)
-    local symbols = mergeSymbols(self, utf8Symbols(normalized))
+    local symbolChunks
+    if self.preTokenizer == "ByteLevel" then
+        symbolChunks = byteLevelChunks(normalized, self.byteLevelPrefix)
+    else
+        symbolChunks = { utf8Symbols(normalized) }
+    end
     local ids = {}
     if (options.addBos == nil and self.addBos) or options.addBos then
         if self.bosTokenId == nil then error("PZONNX tokenizer has no BOS token") end
         table.insert(ids, self.bosTokenId)
     end
-    for _, symbol in ipairs(symbols) do
-        table.insert(ids, self.vocab[symbol] or self.unkTokenId)
+    for _, symbols in ipairs(symbolChunks) do
+        symbols = mergeSymbols(self, symbols)
+        for _, symbol in ipairs(symbols) do
+            local tokenId = self.vocab[symbol] or self.unkTokenId
+            if tokenId == nil then
+                error("PZONNX tokenizer cannot encode symbol without unk_token: " .. tostring(symbol))
+            end
+            table.insert(ids, tokenId)
+        end
     end
     if options.addEos then
         if self.eosTokenId == nil then error("PZONNX tokenizer has no EOS token") end
@@ -222,6 +332,14 @@ function Tokenizer:decode(ids, options)
         end
     end
     local text = table.concat(tokens)
+    if self.decoder.byteLevel then
+        local decoded = {}
+        for _, symbol in ipairs(utf8Symbols(text)) do
+            local byte = symbolToByte[symbol]
+            table.insert(decoded, byte ~= nil and string.char(byte) or symbol)
+        end
+        text = table.concat(decoded)
+    end
     for _, replacement in ipairs(self.decoder.replace) do
         text = string.gsub(text, replacement.from, replacement.to)
     end

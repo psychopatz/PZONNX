@@ -51,7 +51,7 @@ function InferenceJob:_prepareNode(node)
         error("PZONNX unsupported node attributes: " .. tostring(node.opType))
     end
     if (specification.inputCount ~= nil and #node.inputs ~= specification.inputCount) or
-        #node.outputs ~= specification.outputCount then
+        (specification.outputCount ~= nil and #node.outputs ~= specification.outputCount) then
         error("PZONNX operator arity mismatch: " .. tostring(node.opType))
     end
 
@@ -68,10 +68,11 @@ function InferenceJob:_prepareNode(node)
 end
 
 function InferenceJob:_storeNodeResult(node, specification, result)
-    if specification.outputCount == 1 then
+    local outputCount = specification.outputCount or #node.outputs
+    if outputCount == 1 then
         self.values[node.outputs[1]] = result
     else
-        for outputIndex = 1, specification.outputCount do
+        for outputIndex = 1, outputCount do
             self.values[node.outputs[outputIndex]] = result[outputIndex]
         end
     end

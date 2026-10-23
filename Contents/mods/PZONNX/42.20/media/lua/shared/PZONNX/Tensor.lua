@@ -1257,4 +1257,120 @@ function Tensor.softmax(value, axis)
     return Tensor.new(value.shape, output, 1)
 end
 
+function Tensor.sub(left, right)
+    return Tensor.binary(left, right, function(a, b) return a - b end)
+end
+
+function Tensor.less(left, right)
+    return Tensor.compare(left, right, function(a, b) return a < b end)
+end
+
+function Tensor.tanh(value)
+    return Tensor.unary(value, function(x)
+        if x > 20 then return 1 end
+        if x < -20 then return -1 end
+        local exponent = math.exp(2 * x)
+        return (exponent - 1) / (exponent + 1)
+    end)
+end
+
+function Tensor.squeeze(value, axes)
+    assert(Tensor.isTensor(value), "PZONNX Squeeze requires a tensor")
+    local rank = #value.shape
+    local selected = {}
+    if axes == nil or axes:elementCount() == 0 then
+        for dimension = 1, rank do
+            if value.shape[dimension] == 1 then selected[dimension] = true end
+        end
+    else
+        for index = 1, axes:elementCount() do
+            local axis = Tensor.valueAt(axes, index)
+            if axis < 0 then axis = axis + rank end
+            if axis < 0 or axis >= rank then error("PZONNX Squeeze axis is invalid") end
+            if value.shape[axis + 1] ~= 1 then
+                error("PZONNX Squeeze axis does not have dimension 1")
+            end
+            selected[axis + 1] = true
+        end
+    end
+    local outputShape = {}
+    for dimension = 1, rank do
+        if not selected[dimension] then outputShape[#outputShape + 1] = value.shape[dimension] end
+    end
+    local values = {}
+    for index = 1, value:elementCount() do values[index] = Tensor.valueAt(value, index) end
+    return Tensor.new(outputShape, values, value.dataType)
+end
+
+function Tensor.gemm(left, right, bias, attributes)
+    local alpha, beta = 1, 1
+    local transA, transB = false, false
+    for _, attribute in ipairs(attributes or {}) do
+        if attribute.name == "alpha" and attribute.value ~= nil then alpha = attribute.value end
+        if attribute.name == "beta" and attribute.value ~= nil then beta = attribute.value end
+        if attribute.name == "transA" and attribute.value ~= nil then transA = attribute.value ~= 0 end
+        if attribute.name == "transB" and attribute.value ~= nil then transB = attribute.value ~= 0 end
+    end
+    if transA then left = Tensor.transpose(left, { 1, 0 }) end
+    if transB then right = Tensor.transpose(right, { 1, 0 }) end
+    local product = Tensor.matmul(left, right)
+    if alpha ~= 1 then product = Tensor.mul(Tensor.new({}, { alpha }), product) end
+    if bias ~= nil and beta ~= 0 then
+        if beta ~= 1 then bias = Tensor.mul(Tensor.new({}, { beta }), bias) end
+        product = Tensor.add(product, bias)
+    end
+    return product
+end
+
+function Tensor.split(value, splitTensor, axis, outputCount)
+    assert(Tensor.isTensor(value), "PZONNX Split requires a tensor")
+    local rank = #value.shape
+    if axis < 0 then axis = axis + rank end
+    if axis < 0 or axis >= rank then error("PZONNX Split axis is invalid") end
+    local sizes = {}
+    if splitTensor ~= nil then
+        for index = 1, splitTensor:elementCount() do
+            local size = Tensor.valueAt(splitTensor, index)
+            if size < 0 or size ~= math.floor(size) then error("PZONNX Split size is invalid") end
+            sizes[index] = size
+        end
+    else
+        outputCount = outputCount or 1
+        if value.shape[axis + 1] % outputCount ~= 0 then
+            error("PZONNX Split cannot evenly divide the selected axis")
+        end
+        local size = value.shape[axis + 1] / outputCount
+        for index = 1, outputCount do sizes[index] = size end
+    end
+    if outputCount ~= nil and #sizes ~= outputCount then
+        error("PZONNX Split output count does not match split sizes")
+    end
+    local total = 0
+    for _, size in ipairs(sizes) do total = total + size end
+    if total ~= value.shape[axis + 1] then error("PZONNX Split sizes do not cover the selected axis") end
+    local after = 1
+    for dimension = axis + 2, rank do after = after * value.shape[dimension] end
+    local before = value:elementCount() / (value.shape[axis + 1] * after)
+    local outputs = {}
+    local offset = 0
+    for part, size in ipairs(sizes) do
+        local shape = {}
+        for dimension = 1, rank do
+            shape[dimension] = dimension == axis + 1 and size or value.shape[dimension]
+        end
+        local values = {}
+        local write = 1
+        for block = 0, before - 1 do
+            local start = block * value.shape[axis + 1] * after + offset * after + 1
+            for index = 0, size * after - 1 do
+                values[write] = Tensor.valueAt(value, start + index)
+                write = write + 1
+            end
+        end
+        outputs[part] = Tensor.new(shape, values, value.dataType)
+        offset = offset + size
+    end
+    return outputs
+end
+
 return Tensor
