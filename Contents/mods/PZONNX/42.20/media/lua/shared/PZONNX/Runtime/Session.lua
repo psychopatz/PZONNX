@@ -36,6 +36,14 @@ function Session:_initializer(name)
             tensor = Tensor.fromUInt8PackedString(packed, initializer.dims)
         elseif initializer.dataType == 3 then
             tensor = Tensor.fromInt8PackedString(packed, initializer.dims)
+        elseif initializer.dataType == 6 then
+            tensor = Tensor.fromInt32PackedString(packed, initializer.dims)
+        elseif initializer.dataType == 7 then
+            tensor = Tensor.fromInt64PackedString(packed, initializer.dims)
+        elseif initializer.dataType == 10 then
+            tensor = Tensor.fromFloat16PackedString(packed, initializer.dims)
+        elseif initializer.dataType == 16 then
+            tensor = Tensor.fromBFloat16PackedString(packed, initializer.dims)
         else
             error("PZONNX initializer data_type is unsupported: " .. tostring(initializer.name) ..
                 " data_type=" .. tostring(initializer.dataType))

@@ -2,6 +2,7 @@ local Tensor = require "PZONNX/Tensor"
 
 local Registry = {}
 local specs = {}
+local DEFAULT_MAX_OPSET = 18
 
 local function key(domain, opType)
     return tostring(domain or "") .. ":" .. tostring(opType)
@@ -16,14 +17,30 @@ function Registry.register(domain, opType, specification)
     specs[key(specification.domain, opType)] = specification
 end
 
-function Registry.get(domain, opType)
-    return specs[key(domain, opType)]
+local function supportsOpset(specification, opsetVersion)
+    if opsetVersion == nil then
+        return true
+    end
+    local minimum = specification.minOpset or 1
+    local maximum = specification.maxOpset or DEFAULT_MAX_OPSET
+    return opsetVersion >= minimum and opsetVersion <= maximum
 end
 
-function Registry.describe(domain, opType, attributeCount)
-    local specification = Registry.get(domain, opType)
+function Registry.get(domain, opType, opsetVersion)
+    local specification = specs[key(domain, opType)]
+    if specification ~= nil and not supportsOpset(specification, opsetVersion) then
+        return nil
+    end
+    return specification
+end
+
+function Registry.describe(domain, opType, attributeCount, opsetVersion)
+    local specification = specs[key(domain, opType)]
     if specification == nil then
         return "unsupported"
+    end
+    if not supportsOpset(specification, opsetVersion) then
+        return "unsupported-opset"
     end
     if attributeCount ~= nil and attributeCount > 0 and not specification.acceptsAttributes then
         return "unsupported-attributes"

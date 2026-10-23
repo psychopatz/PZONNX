@@ -118,6 +118,15 @@ function ModelPackage:withModelReader(callback)
     return UserFile.withReader(self.modelPath, callback)
 end
 
+function ModelPackage:withExternalReader(location, callback)
+    assert(type(callback) == "function", "PZONNX ModelPackage external reader requires a callback")
+    local resolved, reason = self:resolveExternalData(location)
+    if resolved == nil then
+        error("PZONNX external data path is unsafe: " .. tostring(reason))
+    end
+    return UserFile.withReader(resolved.path, callback)
+end
+
 function ModelPackage:readCompanionText(name, limit)
     assertCompanionName(name)
     return UserFile.tryReadText(joinRelative(self.modelRoot, name), limit)

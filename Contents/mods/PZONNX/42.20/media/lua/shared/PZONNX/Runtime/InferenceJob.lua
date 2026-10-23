@@ -35,9 +35,17 @@ function InferenceJob.new(session, inputs)
 end
 
 function InferenceJob:_prepareNode(node)
-    local specification = OperatorRegistry.get(node.domain, node.opType)
+    local opsetVersion = nil
+    for _, opset in ipairs(self.session.model.opsetImports or {}) do
+        if opset.domain == node.domain then
+            opsetVersion = opset.version
+            break
+        end
+    end
+    local specification = OperatorRegistry.get(node.domain, node.opType, opsetVersion)
     if specification == nil then
-        error("PZONNX unsupported operator: " .. tostring(node.domain) .. ":" .. tostring(node.opType))
+        error("PZONNX unsupported operator/opset: " .. tostring(node.domain) .. ":" ..
+            tostring(node.opType) .. " opset=" .. tostring(opsetVersion))
     end
     if node.attributeCount > 0 and not specification.acceptsAttributes then
         error("PZONNX unsupported node attributes: " .. tostring(node.opType))
@@ -49,7 +57,12 @@ function InferenceJob:_prepareNode(node)
 
     local inputTensors = {}
     for inputIndex = 1, #node.inputs do
-        inputTensors[inputIndex] = self.session:_resolveValue(self.values, node.inputs[inputIndex])
+        local inputName = node.inputs[inputIndex]
+        if inputName == "" then
+            inputTensors[inputIndex] = nil
+        else
+            inputTensors[inputIndex] = self.session:_resolveValue(self.values, inputName)
+        end
     end
     return specification, inputTensors
 end

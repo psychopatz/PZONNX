@@ -13,6 +13,7 @@ local P9AProbe = require "PZONNX/Diagnostics/P9AProbe"
 local P9BProbe = require "PZONNX/Diagnostics/P9BProbe"
 local P9CProbe = require "PZONNX/Diagnostics/P9CProbe"
 local P9DProbe = require "PZONNX/Diagnostics/P9DProbe"
+local P10Probe = require "PZONNX/Diagnostics/P10Probe"
 local TinyTTS = require "PZONNX/Adapters/TinyTTS"
 local Model = require "PZONNX/ONNX/Model"
 local Session = require "PZONNX/Runtime/Session"
@@ -29,7 +30,7 @@ local ModelProbe = require "PZONNX/Models/ModelProbe"
 
 local PZONNX = {
     VERSION = "0.0.1",
-    PHASE = "P9A",
+    PHASE = "P10",
     Log = Log,
 }
 
@@ -71,6 +72,15 @@ function PZONNX.getCapabilities()
         p9cProbe = true,
         modelProbe = true,
         p9dProbe = true,
+        modelPackageLoader = true,
+        externalInitializer = true,
+        opsetAwareDispatch = true,
+        fp16Initializer = true,
+        bfloat16Initializer = true,
+        int32Initializer = true,
+        int64Initializer = true,
+        optionalInputs = true,
+        p10Probe = true,
         p2Probe = true,
         llm = false,
         tts = false,
@@ -133,6 +143,10 @@ function PZONNX.runP9DProbe()
     return P9DProbe.run()
 end
 
+function PZONNX.runP10Probe()
+    return P10Probe.run()
+end
+
 function PZONNX.refreshModels()
     return ModelStore.refresh()
 end
@@ -163,6 +177,14 @@ end
 
 function PZONNX.loadModel(relativePath)
     return Model.loadFile(relativePath)
+end
+
+function PZONNX.loadModelPackage(idOrPath)
+    local modelPackage, reason = ModelPackage.forEntry(idOrPath)
+    if modelPackage == nil then
+        error("PZONNX could not load user model package: " .. tostring(reason))
+    end
+    return Model.loadPackage(modelPackage)
 end
 
 function PZONNX.newSession(model, options)
@@ -199,6 +221,11 @@ function PZONNX.getRuntimeStatus()
             P5 = "OPEN/UNVERIFIED",
             P6 = "OPEN/UNVERIFIED",
             P7 = "OPEN/UNVERIFIED",
+            P9A = "OPEN/UNVERIFIED",
+            P9B = "OPEN/UNVERIFIED",
+            P9C = "OPEN/UNVERIFIED",
+            P9D = "OPEN/UNVERIFIED",
+            P10 = "OPEN/UNVERIFIED",
         },
     }
 end

@@ -505,17 +505,44 @@ local function findOpsetVersion(opsetImports, domain)
     return nil
 end
 
+local function externalDataValue(initializer, key)
+    for _, pair in ipairs(initializer.externalData or {}) do
+        if pair.key == key then
+            return pair.value
+        end
+    end
+    return nil
+end
+
+local function externalRead(reader, initializer, packed)
+    local offset = tonumber(externalDataValue(initializer, "offset") or "0")
+    if offset == nil or offset < 0 or offset ~= math.floor(offset) then
+        error("PZONNX external initializer has an invalid offset: " .. tostring(initializer.name))
+    end
+    reader:skip(offset)
+    local lengthValue = externalDataValue(initializer, "length")
+    local length = lengthValue ~= nil and tonumber(lengthValue) or reader:remaining()
+    if length == nil or length < 0 or length ~= math.floor(length) then
+        error("PZONNX external initializer has an invalid length: " .. tostring(initializer.name))
+    end
+    if packed then
+        return reader:readPackedString(length)
+    end
+    return reader:readBytes(length)
+end
+
 function Model.buildCompatibilityReport(model)
     local report = {
         operators = {},
         datatypes = {},
+        datatypeGaps = {},
         unsupported = {},
     }
 
     for i = 1, #model.graph.nodes do
         local node = model.graph.nodes[i]
         local opsetVersion = findOpsetVersion(model.opsetImports, node.domain)
-        local execution = OperatorRegistry.describe(node.domain, node.opType, node.attributeCount)
+        local execution = OperatorRegistry.describe(node.domain, node.opType, node.attributeCount, opsetVersion)
         local operator = {
             domain = node.domain,
             opType = node.opType,
@@ -532,6 +559,10 @@ function Model.buildCompatibilityReport(model)
         if execution == "unsupported" then
             table.insert(report.unsupported,
                 "operator is not registered: " .. tostring(node.domain) .. ":" .. tostring(node.opType))
+        elseif execution == "unsupported-opset" then
+            table.insert(report.unsupported,
+                "operator is not supported for opset " .. tostring(opsetVersion) .. ": " ..
+                tostring(node.domain) .. ":" .. tostring(node.opType))
         elseif execution == "unsupported-attributes" then
             table.insert(report.unsupported,
                 "registered operator does not accept attributes: " .. tostring(node.opType))
@@ -573,7 +604,14 @@ function Model.buildCompatibilityReport(model)
                 table.insert(report.unsupported,
                     "non-tensor value type is not supported: " .. tostring(valueType.kind))
             else
-                table.insert(report.datatypes, valueType.tensor.elemType)
+                local dataType = valueType.tensor.elemType
+                table.insert(report.datatypes, dataType)
+                if dataType ~= 1 and dataType ~= 2 and dataType ~= 3 and dataType ~= 6 and
+                    dataType ~= 7 and dataType ~= 9 and dataType ~= 10 and dataType ~= 16 then
+                    local gap = "graph data_type is not implemented by the runtime: " .. tostring(dataType)
+                    table.insert(report.datatypeGaps, gap)
+                    table.insert(report.unsupported, gap)
+                end
             end
         end
     end
@@ -587,6 +625,11 @@ function Model.buildCompatibilityReport(model)
         if dataType == nil or dataType < 1 or dataType > 28 then
             table.insert(report.unsupported,
                 "unknown TensorProto data_type: " .. tostring(dataType))
+        elseif dataType ~= 1 and dataType ~= 2 and dataType ~= 3 and dataType ~= 6 and
+            dataType ~= 7 and dataType ~= 9 and dataType ~= 10 and dataType ~= 16 then
+            local gap = "initializer data_type is not implemented by the runtime: " .. tostring(dataType)
+            table.insert(report.datatypeGaps, gap)
+            table.insert(report.unsupported, gap)
         end
         local initializer = model.graph.initializers[i]
         if initializer.dataLocation ~= 0 and initializer.dataLocation ~= 1 then
@@ -666,7 +709,16 @@ function Model.readInitializerBytes(model, initializer)
     assert(model ~= nil and initializer ~= nil,
         "PZONNX Model.readInitializerBytes requires a model and initializer")
     if initializer.dataLocation == 1 then
-        error("PZONNX external initializer loading is not implemented in P2")
+        if model.externalDataReader == nil then
+            error("PZONNX model has external initializer data but no external-data reader")
+        end
+        local location = externalDataValue(initializer, "location")
+        if location == nil then
+            error("PZONNX external initializer is missing a location: " .. tostring(initializer.name))
+        end
+        return model.externalDataReader(location, function(reader)
+            return externalRead(reader, initializer, false)
+        end)
     end
     if initializer.rawData == nil then
         error("PZONNX initializer has no inline raw_data: " .. tostring(initializer.name))
@@ -680,6 +732,9 @@ function Model.readInitializerBytes(model, initializer)
     if model.sourceBytes ~= nil then
         return readFrom(BinaryReader.fromBytes(model.sourceBytes))
     end
+    if model.sourceReader ~= nil then
+        return model.sourceReader(readFrom)
+    end
     if model.sourcePath ~= nil then
         return GameFile.withReader(model.sourcePath, readFrom)
     end
@@ -690,7 +745,16 @@ function Model.readInitializerPackedBytes(model, initializer)
     assert(model ~= nil and initializer ~= nil,
         "PZONNX Model.readInitializerPackedBytes requires a model and initializer")
     if initializer.dataLocation == 1 then
-        error("PZONNX external initializer loading is not implemented")
+        if model.externalDataReader == nil then
+            error("PZONNX model has external initializer data but no external-data reader")
+        end
+        local location = externalDataValue(initializer, "location")
+        if location == nil then
+            error("PZONNX external initializer is missing a location: " .. tostring(initializer.name))
+        end
+        return model.externalDataReader(location, function(reader)
+            return externalRead(reader, initializer, true)
+        end)
     end
     if initializer.rawData == nil then
         error("PZONNX initializer has no inline raw_data: " .. tostring(initializer.name))
@@ -717,6 +781,23 @@ function Model.readInitializerPackedBytes(model, initializer)
     end
     if model.sourcePath ~= nil then return GameFile.withReader(model.sourcePath, readFrom) end
     error("PZONNX model has no source for lazy packed initializer access")
+end
+
+function Model.loadPackage(modelPackage)
+    assert(type(modelPackage) == "table" and type(modelPackage.withModelReader) == "function",
+        "PZONNX Model.loadPackage requires a ModelPackage")
+    local result = modelPackage:withModelReader(function(reader)
+        return Model.parseReader(reader)
+    end)
+    result.sourcePath = modelPackage.modelPath
+    result.sourceReader = function(readFrom)
+        return modelPackage:withModelReader(readFrom)
+    end
+    result.externalDataReader = function(location, readFrom)
+        return modelPackage:withExternalReader(location, readFrom)
+    end
+    result.sourcePackage = modelPackage
+    return result
 end
 
 return Model

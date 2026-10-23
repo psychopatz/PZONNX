@@ -152,9 +152,23 @@ Evidence:
 - source-verified: bounded `P9DProbe` is lazy and startup-safe;
 - open native gate: generic probing of a user-supplied package and sliced real-model responsiveness/cancellation remain unverified in stock PZ.
 
-## Exact Next Chunk — P10 ONNX Compliance / External Data / Opset / Datatype Expansion
+## Completed Developer Chunk — P10 ONNX Compliance / External Data / Opset / Datatype Expansion — 2026-10-23
 
-Extend the generic loading boundary for user packages: resolve validated external tensor data through `ModelPackage`, support the required ONNX external-data metadata and bounded reads, expand opset/domain/version and datatype validation from the current regression subset, and fail unsupported behavior explicitly. Add fixtures/reference checks and bounded tests. Preserve lazy model loading and never materialize large weights into boxed Lua scalar tables.
+Extended package loading with validated external-initializer reads, offset/length metadata handling, package-relative external files, opset-aware registry dispatch, explicit datatype gaps, packed FP16/BF16/int32/int64 decoding, and optional empty-node-input handling. Large initializer storage remains packed and lazy; only value access decodes individual elements. Public package loading and capability/status surfaces are updated while native gates remain open.
+
+Evidence:
+
+- source-verified: `Model.loadPackage()` binds primary and external readers to `ModelPackage`; external locations are validated before access and offset/length bounds are enforced;
+- source-verified: `OperatorRegistry` dispatch/reporting receives opset versions and rejects versions outside implemented semantics explicitly;
+- source-verified: compatibility reports distinguish `datatypeGaps`, unsupported operators/opsets, and execution gaps;
+- source-verified: packed FP16/BF16/int32/int64 initializers decode on demand without expanding backing bytes into Lua scalar arrays;
+- host/reference verified: P10 tests cover external initializer bytes, package inline reads, FP16/BF16/int32/int64 values, future-opset rejection, datatype gaps, and optional Slice inputs;
+- source-verified: bounded P10 probe records compliance capabilities without loading user models;
+- open native gate: user-package external data and sliced real-model responsiveness/cancellation remain unverified in stock PZ.
+
+## Exact Next Chunk — P11 Tokenizer Runtime
+
+Implement a package/profile-driven tokenizer boundary entirely inside supported Kahlua. Load tokenizer assets through `ModelPackage`, implement the minimum tokenizer format demanded by the first selected generative decoder with trusted reference vectors, apply profile/config-driven BOS/EOS/PAD/special-token rules, expose encode/decode operations, and fail unsupported tokenizer features explicitly. Do not claim chat or generation until encode/decode references pass.
 
 ## Following chunks
 

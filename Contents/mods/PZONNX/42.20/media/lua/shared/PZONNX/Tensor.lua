@@ -55,6 +55,76 @@ local function packedFloat32(packed, index)
     return sign * (1 + mantissa / 8388608) * (2 ^ (exponent - 127))
 end
 
+local function packedUInt16(packed, index)
+    local offset = (index - 1) * 2 + 1
+    return packedByte(packed, offset) + packedByte(packed, offset + 1) * 256
+end
+
+local function float32FromBits(bits)
+    local sign = 1
+    if bits >= 2147483648 then sign = -1; bits = bits - 2147483648 end
+    local exponent = math.floor(bits / 8388608)
+    local mantissa = bits % 8388608
+    if exponent == 255 then
+        if mantissa == 0 then return sign * math.huge end
+        return 0 / 0
+    end
+    if exponent == 0 then
+        if mantissa == 0 then return sign * 0 end
+        return sign * (mantissa / 8388608) * (2 ^ -126)
+    end
+    return sign * (1 + mantissa / 8388608) * (2 ^ (exponent - 127))
+end
+
+local function packedFloat16(packed, index)
+    local bits = packedUInt16(packed, index)
+    local sign = math.floor(bits / 32768) == 1 and -1 or 1
+    local exponent = math.floor(bits / 1024) % 32
+    local mantissa = bits % 1024
+    if exponent == 31 then
+        if mantissa == 0 then return sign * math.huge end
+        return 0 / 0
+    end
+    if exponent == 0 then
+        if mantissa == 0 then return sign * 0 end
+        return sign * (mantissa / 1024) * (2 ^ -14)
+    end
+    return sign * (1 + mantissa / 1024) * (2 ^ (exponent - 15))
+end
+
+local function packedBFloat16(packed, index)
+    local bits = packedUInt16(packed, index)
+    return float32FromBits(bits * 65536)
+end
+
+local function packedInt32(packed, index)
+    local offset = (index - 1) * 4 + 1
+    local bits = packedByte(packed, offset) + packedByte(packed, offset + 1) * 256 +
+        packedByte(packed, offset + 2) * 65536 + packedByte(packed, offset + 3) * 16777216
+    if bits >= 2147483648 then return bits - 4294967296 end
+    return bits
+end
+
+local function packedInt64(packed, index)
+    local offset = (index - 1) * 8 + 1
+    local low = packedByte(packed, offset) + packedByte(packed, offset + 1) * 256 +
+        packedByte(packed, offset + 2) * 65536 + packedByte(packed, offset + 3) * 16777216
+    local high = packedByte(packed, offset + 4) + packedByte(packed, offset + 5) * 256 +
+        packedByte(packed, offset + 6) * 65536 + packedByte(packed, offset + 7) * 16777216
+    if high == 2147483647 and low == 4294967295 then return math.huge end
+    if high == 2147483648 and low == 0 then return -math.huge end
+    local value
+    if high >= 2147483648 then
+        value = (high - 4294967296) * 4294967296 + low
+    else
+        value = high * 4294967296 + low
+    end
+    if math.abs(value) > 9007199254740991 then
+        error("PZONNX packed int64 exceeds Lua exact integer range")
+    end
+    return value
+end
+
 local function fromPacked(shape, packed, dataType, storageKind, bytesPerElement)
     local count = validateShape(shape)
     assert(#packed == count * bytesPerElement,
@@ -79,6 +149,22 @@ end
 
 function Tensor.fromInt8PackedString(packed, shape)
     return fromPacked(shape, packed, 3, "int8", 1)
+end
+
+function Tensor.fromInt32PackedString(packed, shape)
+    return fromPacked(shape, packed, 6, "int32", 4)
+end
+
+function Tensor.fromInt64PackedString(packed, shape)
+    return fromPacked(shape, packed, 7, "int64", 8)
+end
+
+function Tensor.fromFloat16PackedString(packed, shape)
+    return fromPacked(shape, packed, 10, "float16", 2)
+end
+
+function Tensor.fromBFloat16PackedString(packed, shape)
+    return fromPacked(shape, packed, 16, "bfloat16", 2)
 end
 
 function Tensor.fromProtoTensor(proto)
@@ -115,6 +201,12 @@ function Tensor.fromProtoTensor(proto)
             for i = 1, count do values[i] = proto.rawDataBytes[i] ~= 0 and 1 or 0 end
             return Tensor.new(shape, values, 9)
         end
+        local packedBytes = {}
+        for i = 1, #proto.rawDataBytes do packedBytes[i] = string.char(proto.rawDataBytes[i]) end
+        local packed = table.concat(packedBytes)
+        if proto.dataType == 6 then return Tensor.fromInt32PackedString(packed, shape) end
+        if proto.dataType == 10 then return Tensor.fromFloat16PackedString(packed, shape) end
+        if proto.dataType == 16 then return Tensor.fromBFloat16PackedString(packed, shape) end
         error("PZONNX captured raw tensor data_type is unsupported: " .. tostring(proto.dataType))
     end
     if proto.values == nil then
@@ -129,14 +221,15 @@ end
 
 function Tensor.cast(value, dataType)
     assert(Tensor.isTensor(value), "PZONNX Cast requires a tensor")
-    assert(dataType == 1 or dataType == 6 or dataType == 7 or dataType == 9,
+    assert(dataType == 1 or dataType == 6 or dataType == 7 or dataType == 9 or
+        dataType == 10 or dataType == 16,
         "PZONNX Cast target data_type is unsupported: " .. tostring(dataType))
     local values = {}
     for i = 1, value:elementCount() do
         local source = Tensor.valueAt(value, i)
         if dataType == 9 then
             values[i] = source ~= 0 and 1 or 0
-        elseif dataType == 1 then
+        elseif dataType == 1 or dataType == 10 or dataType == 16 then
             values[i] = source + 0.0
         else
             if source ~= math.floor(source) then
@@ -244,6 +337,10 @@ end
 function Tensor.valueAt(value, index)
     if value.packed ~= nil then
         if value.storageKind == "float32" then return packedFloat32(value.packed, index) end
+        if value.storageKind == "float16" then return packedFloat16(value.packed, index) end
+        if value.storageKind == "bfloat16" then return packedBFloat16(value.packed, index) end
+        if value.storageKind == "int32" then return packedInt32(value.packed, index) end
+        if value.storageKind == "int64" then return packedInt64(value.packed, index) end
         local byte = packedByte(value.packed, index)
         if byte == nil then
             error("PZONNX packed tensor index out of bounds index=" .. tostring(index) ..
