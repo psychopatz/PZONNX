@@ -107,6 +107,13 @@ local function runP10ProbeSafely()
     end
 end
 
+local function runP11ProbeSafely()
+    local ok, result = pcall(PZONNX.runP11Probe)
+    if not ok then
+        PZONNX.Log.warn("probe=P11 status=FAIL error=" .. tostring(result))
+    end
+end
+
 if Events ~= nil and Events.OnGameStart ~= nil then
     Events.OnGameStart.Add(runP0ProbeSafely)
     Events.OnGameStart.Add(runP0BProbeSafely)
@@ -123,6 +130,7 @@ if Events ~= nil and Events.OnGameStart ~= nil then
     Events.OnGameStart.Add(runP9CProbeSafely)
     Events.OnGameStart.Add(runP9DProbeSafely)
     Events.OnGameStart.Add(runP10ProbeSafely)
+    Events.OnGameStart.Add(runP11ProbeSafely)
 else
     PZONNX.Log.warn("probe=P0A status=DEFERRED reason=OnGameStart_unavailable")
     PZONNX.Log.warn("probe=P0B status=DEFERRED reason=OnGameStart_unavailable")
@@ -139,4 +147,5 @@ else
     PZONNX.Log.warn("probe=P9C status=DEFERRED reason=OnGameStart_unavailable")
     PZONNX.Log.warn("probe=P9D status=DEFERRED reason=OnGameStart_unavailable")
     PZONNX.Log.warn("probe=P10 status=DEFERRED reason=OnGameStart_unavailable")
+    PZONNX.Log.warn("probe=P11 status=DEFERRED reason=OnGameStart_unavailable")
 end

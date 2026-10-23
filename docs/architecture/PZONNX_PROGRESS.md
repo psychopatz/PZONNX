@@ -166,9 +166,22 @@ Evidence:
 - source-verified: bounded P10 probe records compliance capabilities without loading user models;
 - open native gate: user-package external data and sliced real-model responsiveness/cancellation remain unverified in stock PZ.
 
-## Exact Next Chunk — P11 Tokenizer Runtime
+## Completed Developer Chunk — P11 Tokenizer Runtime — 2026-10-23
 
-Implement a package/profile-driven tokenizer boundary entirely inside supported Kahlua. Load tokenizer assets through `ModelPackage`, implement the minimum tokenizer format demanded by the first selected generative decoder with trusted reference vectors, apply profile/config-driven BOS/EOS/PAD/special-token rules, expose encode/decode operations, and fail unsupported tokenizer features explicitly. Do not claim chat or generation until encode/decode references pass.
+Implemented a package/profile-driven pure-Kahlua BPE tokenizer over `tokenizer.json`, including supported normalizer/post-processor/decoder paths, UTF-8 symbol handling, ranked merges, BOS/EOS and special-token rules, encode/decode APIs, bounded JSON parsing, and explicit rejection of unsupported tokenizer families/features. The selected Tiny-LLM tokenizer was inspected with development-time tooling as BPE (32k vocabulary) and the runtime matched trusted reference IDs for `hello world` and the model sample; this still does not claim model generation.
+
+Evidence:
+
+- source-verified: tokenizer assets are loaded only through `ModelPackage` and are explicit-use/lazy;
+- source-verified: unsupported non-BPE models, pre-tokenizers, normalizers, post-processors, decoder components, malformed JSON, and missing special-token contracts fail explicitly;
+- host/reference verified: compact tokenizer fixture vectors pass encode/decode, BOS override, EOS append, special-token skipping, malformed JSON, and unsupported-family tests;
+- real-model metadata/reference verified: development `tokenizers` output matched runtime IDs for Tiny-LLM `hello world` (`1,22172,3186`) and its longer sample; no in-game claim is made;
+- source-verified: startup P11 probe reports availability without parsing every tokenizer;
+- open native gate: tokenizer loading through a live PZ user package and all sliced real-model responsiveness/cancellation remain unverified.
+
+## Exact Next Chunk — P12 Generic Decoder Runtime
+
+Implement generic decoder execution over a `ModelProfile`: text-token prefill, decoder-cache/KV lifecycle, one-token decode, cache-shape validation, and bounded/resumable work scheduling. Use graph/profile roles and cache patterns rather than TinyLLM/Llama/Qwen branches. Add host/reference prefill/decode fixtures and preserve numerical evidence; do not expose chat/generation claims until token IDs are sampled/decoded through this path.
 
 ## Following chunks
 
