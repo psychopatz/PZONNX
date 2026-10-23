@@ -17,6 +17,7 @@ local P10Probe = require "PZONNX/Diagnostics/P10Probe"
 local P11Probe = require "PZONNX/Diagnostics/P11Probe"
 local P12Probe = require "PZONNX/Diagnostics/P12Probe"
 local P13Probe = require "PZONNX/Diagnostics/P13Probe"
+local P14Probe = require "PZONNX/Diagnostics/P14Probe"
 local TinyTTS = require "PZONNX/Adapters/TinyTTS"
 local Model = require "PZONNX/ONNX/Model"
 local Session = require "PZONNX/Runtime/Session"
@@ -33,10 +34,11 @@ local ModelProbe = require "PZONNX/Models/ModelProbe"
 local Tokenizer = require "PZONNX/Models/Tokenizer"
 local Decoder = require "PZONNX/Runtime/Decoder"
 local Sampler = require "PZONNX/Runtime/Sampler"
+local Profiler = require "PZONNX/Runtime/Profiler"
 
 local PZONNX = {
     VERSION = "0.0.1",
-    PHASE = "P13",
+    PHASE = "P14",
     Log = Log,
 }
 
@@ -96,6 +98,9 @@ function PZONNX.getCapabilities()
         sampler = true,
         seededSampling = true,
         p13Probe = true,
+        profiler = true,
+        storageMetrics = true,
+        p14Probe = true,
         p2Probe = true,
         llm = false,
         tts = false,
@@ -174,6 +179,10 @@ function PZONNX.runP13Probe()
     return P13Probe.run()
 end
 
+function PZONNX.runP14Probe()
+    return P14Probe.run()
+end
+
 function PZONNX.refreshModels()
     return ModelStore.refresh()
 end
@@ -202,20 +211,20 @@ function PZONNX.probeModel(idOrPath, options)
     return ModelProbe.forEntry(idOrPath, options)
 end
 
-function PZONNX.newTokenizer(idOrPath, profile)
+function PZONNX.newTokenizer(idOrPath, profile, options)
     local modelPackage, reason = ModelPackage.forEntry(idOrPath)
     if modelPackage == nil then
         error("PZONNX could not load tokenizer package: " .. tostring(reason))
     end
-    return Tokenizer.fromPackage(modelPackage, profile)
+    return Tokenizer.fromPackage(modelPackage, profile, options and options.profiler)
 end
 
 function PZONNX.encode(idOrPath, text, options)
-    return PZONNX.newTokenizer(idOrPath):encode(text, options)
+    return PZONNX.newTokenizer(idOrPath, nil, options):encode(text, options)
 end
 
 function PZONNX.decode(idOrPath, tokenIds, options)
-    return PZONNX.newTokenizer(idOrPath):decode(tokenIds, options)
+    return PZONNX.newTokenizer(idOrPath, nil, options):decode(tokenIds, options)
 end
 
 function PZONNX.newDecoder(session, profile, options)
@@ -234,6 +243,10 @@ end
 
 function PZONNX.newSampler(options)
     return Sampler.new(options)
+end
+
+function PZONNX.newProfiler(options)
+    return Profiler.new(options)
 end
 
 function PZONNX.loadModel(relativePath)
@@ -290,6 +303,7 @@ function PZONNX.getRuntimeStatus()
             P11 = "OPEN/UNVERIFIED",
             P12 = "OPEN/UNVERIFIED",
             P13 = "OPEN/UNVERIFIED",
+            P14 = "OPEN/UNVERIFIED",
         },
     }
 end
@@ -309,5 +323,6 @@ PZONNX.ModelProbe = ModelProbe
 PZONNX.Tokenizer = Tokenizer
 PZONNX.Decoder = Decoder
 PZONNX.Sampler = Sampler
+PZONNX.Profiler = Profiler
 
 return PZONNX

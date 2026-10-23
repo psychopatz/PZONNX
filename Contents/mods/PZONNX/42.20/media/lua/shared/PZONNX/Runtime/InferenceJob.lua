@@ -85,7 +85,13 @@ end
 function InferenceJob:step(budget)
     assert(type(budget) == "number" and budget > 0 and budget == math.floor(budget),
         "PZONNX InferenceJob.step budget must be a positive integer")
+    local profilerToken = self.session.profiler and self.session.profiler:begin("inference.step", {
+        cursor = self.cursor,
+    })
     if self.state == "completed" or self.state == "cancelled" then
+        if profilerToken ~= nil then
+            self.session.profiler:finish(profilerToken, { work = 0, state = self.state })
+        end
         return { done = true, state = self.state, work = 0, cursor = self.cursor, outputs = self.outputs }
     end
     if self.state == "failed" then
@@ -136,6 +142,9 @@ function InferenceJob:step(budget)
                 end
                 self.cursor = self.cursor + 1
                 work = work + 1
+                if self.session.profiler ~= nil then
+                    self.session.profiler:record("operator." .. tostring(node.opType), { work = 1 })
+                end
             end
         end
 
@@ -172,6 +181,9 @@ function InferenceJob:step(budget)
                 self:_storeNodeResult(active.node, active.specification, result)
                 self.activeNode = nil
                 self.cursor = self.cursor + 1
+                if self.session.profiler ~= nil then
+                    self.session.profiler:record("operator." .. tostring(active.node.opType), { work = kernelWork })
+                end
             else
                 break
             end
@@ -185,6 +197,13 @@ function InferenceJob:step(budget)
             self.outputs[output.name] = findValue(self.values, output.name)
         end
         self.state = "completed"
+    end
+    if profilerToken ~= nil then
+        self.session.profiler:finish(profilerToken, {
+            work = work,
+            cursor = self.cursor,
+            state = self.state,
+        })
     end
     return {
         done = self.state == "completed",

@@ -87,7 +87,7 @@ local function parsePostProcessor(document, tokenizer)
     end
 end
 
-function Tokenizer.fromDocument(document, profile)
+function Tokenizer.fromDocument(document, profile, profiler)
     assert(type(document) == "table" and type(document.model) == "table",
         "PZONNX tokenizer JSON is missing model")
     if document.model.type ~= "BPE" then
@@ -115,6 +115,7 @@ function Tokenizer.fromDocument(document, profile)
         specialIds = {},
         normalizer = document.normalizer,
         decoder = parseDecoder(document),
+        profiler = profiler,
     }, Tokenizer)
     for token, id in pairs(vocab) do
         tokenizer.idToToken[id] = token
@@ -142,14 +143,14 @@ function Tokenizer.fromDocument(document, profile)
     return tokenizer
 end
 
-function Tokenizer.fromPackage(modelPackage, profile)
+function Tokenizer.fromPackage(modelPackage, profile, profiler)
     assert(type(modelPackage) == "table" and type(modelPackage.readCompanionText) == "function",
         "PZONNX Tokenizer.load requires a ModelPackage")
     local text, reason = modelPackage:readCompanionText("tokenizer.json", 8388608)
     if text == nil then error("PZONNX tokenizer.json is unavailable: " .. tostring(reason)) end
     local document, parseReason = Json.decode(text)
     if document == nil then error("PZONNX tokenizer.json is invalid: " .. tostring(parseReason)) end
-    return Tokenizer.fromDocument(document, profile)
+    return Tokenizer.fromDocument(document, profile, profiler)
 end
 
 local function mergeSymbols(tokenizer, symbols)
@@ -196,6 +197,9 @@ function Tokenizer:encode(text, options)
         if self.eosTokenId == nil then error("PZONNX tokenizer has no EOS token") end
         table.insert(ids, self.eosTokenId)
     end
+    if self.profiler ~= nil then
+        self.profiler:record("tokenizer.encode", { work = #ids, characters = #text })
+    end
     return ids
 end
 
@@ -226,6 +230,9 @@ function Tokenizer:decode(ids, options)
     end
     for _ = 1, self.decoder.stripStop do
         if string.sub(text, -1) == " " then text = string.sub(text, 1, -2) end
+    end
+    if self.profiler ~= nil then
+        self.profiler:record("tokenizer.decode", { work = #ids, characters = #text })
     end
     return text
 end

@@ -89,6 +89,7 @@ function Decoder.new(session, profile, options)
         sequenceLength = 0,
         lastResult = nil,
         maxSequenceLength = options.maxSequenceLength or profile.contextLength,
+        profiler = options.profiler,
     }, Decoder)
 end
 
@@ -180,8 +181,17 @@ end
 
 function Decoder:step(budget)
     assert(self.job ~= nil, "PZONNX Decoder has no pending work")
+    local profilerToken = self.profiler and self.profiler:begin("decoder.step", {
+        state = self.state,
+        sequenceLength = self.sequenceLength,
+    })
     local result = self.job:step(budget or 1)
-    if result.done then return true, self:_complete(result) end
+    if result.done then
+        local completed = self:_complete(result)
+        if profilerToken ~= nil then self.profiler:finish(profilerToken, { work = result.work or 0 }) end
+        return true, completed
+    end
+    if profilerToken ~= nil then self.profiler:finish(profilerToken, { work = result.work or 0 }) end
     return false, {
         state = self.state,
         cursor = result.cursor,

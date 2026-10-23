@@ -203,9 +203,21 @@ Evidence:
 - source-verified: bounded P13 probe and public sampler capability are available;
 - open native gate: sampled decoder output and sliced real-model responsiveness/cancellation remain unverified in stock PZ.
 
-## Exact Next Chunk — P14 Profiler / Performance Optimization
+## Completed Developer Chunk — P14 Profiler / Performance Optimization — 2026-10-23
 
-Add bounded profiler instrumentation around scheduler steps, operators, tensor storage/access, decoder prefill/decode, tokenizer, and sampling. Measure node/kernel work, elapsed host/native time where available, packed-vs-boxed storage, allocation/cache behavior, and cancellation latency. Optimize only measured hotspots, preserve numerical references, and add responsiveness-oriented host tests/threshold reports without claiming native throughput.
+Added a disabled-by-default bounded profiler using the source-verified PZ `getTimestampMs()` API when available, with injectable host clocks, event caps, aggregates, scheduler/operator/decoder/tokenizer instrumentation, and packed/quantized tensor storage reports. No speed or native throughput claim is made; the profiler provides the measurements required for later optimization and responsiveness checks.
+
+Evidence:
+
+- source-verified: `Runtime/Profiler.lua` records bounded elapsed time/work and exposes reset/snapshot data without global timing or random-state mutation;
+- source-verified: session jobs, operators, decoder steps, tokenizer encode/decode, and tensor storage can emit profiler events while disabled paths remain no-op;
+- host/reference verified: P14 tests cover event bounds, aggregate work, packed storage metrics, and disabled profiler behavior;
+- PZ Java source-verified: `getTimestampMs` is a supported global Lua method backed by `System.currentTimeMillis()`;
+- open native gate: real timing/cancellation responsiveness and sliced model throughput remain unverified in stock PZ.
+
+## Exact Next Chunk — P15 Multi-Family Compatibility
+
+Use the generic store/package/profile/probe/decoder/sampler path against at least one structurally different decoder export in addition to TinyLLM. Add model-agnostic compatibility fixtures and reference metadata, ensure no family-name execution branches are required, and report unsupported contract/operator/tokenizer gaps explicitly. Keep the native real-model responsiveness gate open.
 
 ## Following chunks
 

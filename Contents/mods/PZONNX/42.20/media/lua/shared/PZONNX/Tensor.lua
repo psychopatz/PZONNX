@@ -363,6 +363,18 @@ function Tensor.storageBytes(value)
     return #value.data * 4
 end
 
+function Tensor.storageReport(value)
+    assert(Tensor.isTensor(value), "PZONNX Tensor.storageReport requires a tensor")
+    local storage = value.packed ~= nil and value.storageKind or "boxed"
+    if value.quantized then storage = "quantized" end
+    return {
+        storage = storage,
+        bytes = Tensor.storageBytes(value),
+        elements = value:elementCount(),
+        dataType = value.dataType,
+    }
+end
+
 function Tensor.quantizeInt8(value, scale)
     assert(Tensor.isTensor(value), "PZONNX quantization requires a tensor")
     assert(type(scale) == "number" and scale > 0, "PZONNX int8 scale must be positive")

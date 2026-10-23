@@ -12,6 +12,7 @@ function Session.new(model, options)
         model = model,
         initializerTensors = {},
         quantizedWeightScale = options.quantizedWeightScale,
+        profiler = options.profiler,
     }, Session)
 end
 
