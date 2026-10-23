@@ -196,6 +196,8 @@ local function collectValueInfos(values, direction, profile)
         if role == "past_value" then profile.pastValuePattern = descriptor.name end
         if role == "present_key" then profile.presentKeyPattern = descriptor.name end
         if role == "present_value" then profile.presentValuePattern = descriptor.name end
+        if role == "past_key" or role == "past_value" then table.insert(profile.cacheInputs, descriptor) end
+        if role == "present_key" or role == "present_value" then table.insert(profile.cacheOutputs, descriptor) end
     end
     return result
 end
@@ -382,6 +384,8 @@ function ModelProfile.inspect(modelPackage)
         pastValuePattern = nil,
         presentKeyPattern = nil,
         presentValuePattern = nil,
+        cacheInputs = {},
+        cacheOutputs = {},
         layerCount = nil,
         contextLength = nil,
         vocabSize = nil,

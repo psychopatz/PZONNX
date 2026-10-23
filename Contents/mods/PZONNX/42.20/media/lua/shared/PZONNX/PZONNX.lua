@@ -15,6 +15,7 @@ local P9CProbe = require "PZONNX/Diagnostics/P9CProbe"
 local P9DProbe = require "PZONNX/Diagnostics/P9DProbe"
 local P10Probe = require "PZONNX/Diagnostics/P10Probe"
 local P11Probe = require "PZONNX/Diagnostics/P11Probe"
+local P12Probe = require "PZONNX/Diagnostics/P12Probe"
 local TinyTTS = require "PZONNX/Adapters/TinyTTS"
 local Model = require "PZONNX/ONNX/Model"
 local Session = require "PZONNX/Runtime/Session"
@@ -29,10 +30,11 @@ local ModelPackage = require "PZONNX/Models/ModelPackage"
 local ModelProfile = require "PZONNX/Models/ModelProfile"
 local ModelProbe = require "PZONNX/Models/ModelProbe"
 local Tokenizer = require "PZONNX/Models/Tokenizer"
+local Decoder = require "PZONNX/Runtime/Decoder"
 
 local PZONNX = {
     VERSION = "0.0.1",
-    PHASE = "P11",
+    PHASE = "P12",
     Log = Log,
 }
 
@@ -86,6 +88,9 @@ function PZONNX.getCapabilities()
         tokenizerRuntime = true,
         tokenizerBPE = true,
         p11Probe = true,
+        decoderRuntime = true,
+        kvCache = true,
+        p12Probe = true,
         p2Probe = true,
         llm = false,
         tts = false,
@@ -156,6 +161,10 @@ function PZONNX.runP11Probe()
     return P11Probe.run()
 end
 
+function PZONNX.runP12Probe()
+    return P12Probe.run()
+end
+
 function PZONNX.refreshModels()
     return ModelStore.refresh()
 end
@@ -198,6 +207,20 @@ end
 
 function PZONNX.decode(idOrPath, tokenIds, options)
     return PZONNX.newTokenizer(idOrPath):decode(tokenIds, options)
+end
+
+function PZONNX.newDecoder(session, profile, options)
+    return Decoder.new(session, profile, options)
+end
+
+function PZONNX.newDecoderForEntry(idOrPath, options)
+    local modelPackage, reason = ModelPackage.forEntry(idOrPath)
+    if modelPackage == nil then
+        error("PZONNX could not load decoder package: " .. tostring(reason))
+    end
+    local model = Model.loadPackage(modelPackage)
+    local profile = ModelProfile.inspect(modelPackage)
+    return Decoder.new(Session.new(model, options), profile, options)
 end
 
 function PZONNX.loadModel(relativePath)
@@ -252,6 +275,7 @@ function PZONNX.getRuntimeStatus()
             P9D = "OPEN/UNVERIFIED",
             P10 = "OPEN/UNVERIFIED",
             P11 = "OPEN/UNVERIFIED",
+            P12 = "OPEN/UNVERIFIED",
         },
     }
 end
@@ -269,5 +293,6 @@ PZONNX.ModelPackage = ModelPackage
 PZONNX.ModelProfile = ModelProfile
 PZONNX.ModelProbe = ModelProbe
 PZONNX.Tokenizer = Tokenizer
+PZONNX.Decoder = Decoder
 
 return PZONNX

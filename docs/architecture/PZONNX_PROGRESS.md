@@ -179,9 +179,21 @@ Evidence:
 - source-verified: startup P11 probe reports availability without parsing every tokenizer;
 - open native gate: tokenizer loading through a live PZ user package and all sliced real-model responsiveness/cancellation remain unverified.
 
-## Exact Next Chunk — P12 Generic Decoder Runtime
+## Completed Developer Chunk — P12 Generic Decoder Runtime — 2026-10-23
 
-Implement generic decoder execution over a `ModelProfile`: text-token prefill, decoder-cache/KV lifecycle, one-token decode, cache-shape validation, and bounded/resumable work scheduling. Use graph/profile roles and cache patterns rather than TinyLLM/Llama/Qwen branches. Add host/reference prefill/decode fixtures and preserve numerical evidence; do not expose chat/generation claims until token IDs are sampled/decoded through this path.
+Implemented a profile-driven decoder primitive with token prefill, one-token decode, attention/position input construction, ordered KV cache transfer, cache-shape validation, bounded `InferenceJob` stepping, cancellation, reset, and explicit model-entry construction. No TinyLLM/Llama/Qwen execution branches were added, and this chunk does not claim sampling or chat generation.
+
+Evidence:
+
+- source-verified: `Runtime/Decoder.lua` consumes generic profile roles/cache descriptors and uses the existing resumable session job;
+- source-verified: cache input/output count and tensor availability are validated; dynamic dimensions fail explicitly when they cannot be resolved;
+- host/reference verified: P12 tests cover resumable prefill, empty initial cache, attention/position progression, one-token decode cache reuse, and cancellation;
+- source-verified: public decoder creation APIs and lazy P12 probe are available;
+- open native gate: real user-model prefill/decode and sliced real-model responsiveness/cancellation remain unverified in stock PZ.
+
+## Exact Next Chunk — P13 Sampling
+
+Implement deterministic and seeded sampling over decoder logits: greedy/argmax, temperature, top-k, top-p, repetition/presence/frequency penalties, EOS/length stopping, and explicit numerical-boundary behavior. Keep sampling independent from model families and tokenizer implementation. Add trusted reference vectors and ensure sampled token IDs are passed through the P11 decoder before any generation/UI claim.
 
 ## Following chunks
 
