@@ -1,8 +1,8 @@
-# PZONNX in-game inference probe UI
+# PZONNX in-game inference and generative UI
 
 ## Current role
 
-The existing Core-backed window is a **forward-pass/token diagnostic probe**, not a completed chat interface.
+PZONNX now exposes two Core-backed windows: the original forward-pass/token diagnostic probe and a separate ledger-backed generative chat surface. Both use supported `PsychopatzCore` UI factories; the diagnostic surface remains intentionally separate from text generation.
 
 It currently:
 
@@ -47,18 +47,17 @@ Current source now includes resumable MatMul/MatMulInteger kernel state, a bound
 
 This is accepted source/host progress. Native verification still must confirm that the game remains responsive and Cancel executes during a real model run.
 
-## Future UI modes
+## Generation mode
 
-When P16 is reached, keep two distinct surfaces/modes.
+- `PZONNX/GenerationUI.lua` refreshes and displays ledger entries from the user model store;
+- the model field accepts a registered ledger path, not a packaged fixture path;
+- prompt text is passed through the generic tokenizer, decoder/KV scheduler, sampler, and text decoder;
+- max-new-token limits, cooperative progress, cancel, and explicit error reporting are visible;
+- the Debug Hub and command hub expose the window; F9 is the default toggle key.
 
-### Generation mode
+The generation surface is source/host verified only. It must not be described as native generation acceptance until a stock-PZ user package has been loaded and a real run has remained responsive.
 
-- model selection from ledger-backed registry;
-- text prompt;
-- max tokens;
-- sampling controls;
-- generated readable text;
-- progress/cancel.
+## Diagnostic mode
 
 ### Diagnostic mode
 
@@ -70,8 +69,8 @@ When P16 is reached, keep two distinct surfaces/modes.
 - node/kernel progress;
 - profiler timing.
 
-Do not make the diagnostic probe pretend to be chat before tokenizer + generation runtime acceptance.
+The diagnostic probe remains available from the command hub and F8. It continues to accept raw token IDs and show logits/node progress, and it must not be used as evidence for readable generation.
 
 ## Evidence boundary
 
-The linked real tiny model has host/reference forward-pass evidence. That does not yet prove native readable chat generation.
+The linked real tiny model has host/reference forward-pass evidence. That does not prove native readable chat generation, user-package loading, multi-family generation, or game-thread responsiveness.

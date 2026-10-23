@@ -243,6 +243,22 @@ Evidence:
 
 Extend the existing Core-backed diagnostic window with a distinct ledger-backed generative mode. Preserve the numeric forward-pass probe, add model refresh/selection and prompt controls, drive `Generator:step()` cooperatively with visible progress/cancel state, and display decoded assistant text only when the generic tokenizer/decoder/sampler contracts are actually ready. Keep packaged TinyLLM paths as diagnostic regression assets rather than the user model architecture.
 
+## Completed Developer Chunk — P16 Core-Backed Generative Chat Surface — 2026-10-23
+
+Added a distinct `GenerationUI` built on the reusable PsychopatzCore window, layout, button, text-entry, command-hub, debug-hub, keybind, and OnTick surfaces. The window refreshes the explicit user ledger, shows registered/missing/invalid entries, loads only a selected registered package through `newGeneratorForEntry()`, accepts prompt/max-token input, steps generation one bounded budget per tick, displays decoded assistant text and stop reason, and cancels active work. The numeric Tiny-LLM forward-pass probe remains separate and unchanged as a diagnostic regression surface.
+
+Evidence:
+
+- source-verified: `GenerationUI.lua` requires the supported Core UI modules and uses no custom Java/native bridge;
+- source-verified: the generation window is ledger-backed and does not expose packaged fixture/model paths as the user model architecture;
+- host/reference verified: all repository Lua host tests pass, including P16 generator tests; PZ Kahlua verification reports 0 errors and 0 warnings across 50 scanned files;
+- open native gates: the Core-backed window, a live user package, readable native generation, and sliced real-model responsiveness/cancellation still require stock-PZ evidence;
+- partial: P15 still lacks a second real decoder family with reference-consistent generation, so the parent objective remains open.
+
+## Exact Next Chunk — P17 TTS / Pipeline Expansion
+
+Add the model-agnostic pipeline boundary for optional text-to-speech and caller-owned postprocessing. Preserve explicit capability negotiation, bounded scheduling, cancellation, and the distinction between generated text acceptance and optional audio acceptance. Keep the P15 real-family evidence gate and all native responsiveness gates open while developer-side TTS/pipeline work proceeds.
+
 ## Following chunks
 
 After P9A acceptance, continue directly:
