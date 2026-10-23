@@ -16,6 +16,7 @@ local P9DProbe = require "PZONNX/Diagnostics/P9DProbe"
 local P10Probe = require "PZONNX/Diagnostics/P10Probe"
 local P11Probe = require "PZONNX/Diagnostics/P11Probe"
 local P12Probe = require "PZONNX/Diagnostics/P12Probe"
+local P13Probe = require "PZONNX/Diagnostics/P13Probe"
 local TinyTTS = require "PZONNX/Adapters/TinyTTS"
 local Model = require "PZONNX/ONNX/Model"
 local Session = require "PZONNX/Runtime/Session"
@@ -31,10 +32,11 @@ local ModelProfile = require "PZONNX/Models/ModelProfile"
 local ModelProbe = require "PZONNX/Models/ModelProbe"
 local Tokenizer = require "PZONNX/Models/Tokenizer"
 local Decoder = require "PZONNX/Runtime/Decoder"
+local Sampler = require "PZONNX/Runtime/Sampler"
 
 local PZONNX = {
     VERSION = "0.0.1",
-    PHASE = "P12",
+    PHASE = "P13",
     Log = Log,
 }
 
@@ -91,6 +93,9 @@ function PZONNX.getCapabilities()
         decoderRuntime = true,
         kvCache = true,
         p12Probe = true,
+        sampler = true,
+        seededSampling = true,
+        p13Probe = true,
         p2Probe = true,
         llm = false,
         tts = false,
@@ -165,6 +170,10 @@ function PZONNX.runP12Probe()
     return P12Probe.run()
 end
 
+function PZONNX.runP13Probe()
+    return P13Probe.run()
+end
+
 function PZONNX.refreshModels()
     return ModelStore.refresh()
 end
@@ -223,6 +232,10 @@ function PZONNX.newDecoderForEntry(idOrPath, options)
     return Decoder.new(Session.new(model, options), profile, options)
 end
 
+function PZONNX.newSampler(options)
+    return Sampler.new(options)
+end
+
 function PZONNX.loadModel(relativePath)
     return Model.loadFile(relativePath)
 end
@@ -276,6 +289,7 @@ function PZONNX.getRuntimeStatus()
             P10 = "OPEN/UNVERIFIED",
             P11 = "OPEN/UNVERIFIED",
             P12 = "OPEN/UNVERIFIED",
+            P13 = "OPEN/UNVERIFIED",
         },
     }
 end
@@ -294,5 +308,6 @@ PZONNX.ModelProfile = ModelProfile
 PZONNX.ModelProbe = ModelProbe
 PZONNX.Tokenizer = Tokenizer
 PZONNX.Decoder = Decoder
+PZONNX.Sampler = Sampler
 
 return PZONNX

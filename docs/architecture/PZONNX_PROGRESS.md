@@ -191,9 +191,21 @@ Evidence:
 - source-verified: public decoder creation APIs and lazy P12 probe are available;
 - open native gate: real user-model prefill/decode and sliced real-model responsiveness/cancellation remain unverified in stock PZ.
 
-## Exact Next Chunk — P13 Sampling
+## Completed Developer Chunk — P13 Sampling — 2026-10-23
 
-Implement deterministic and seeded sampling over decoder logits: greedy/argmax, temperature, top-k, top-p, repetition/presence/frequency penalties, EOS/length stopping, and explicit numerical-boundary behavior. Keep sampling independent from model families and tokenizer implementation. Add trusted reference vectors and ensure sampled token IDs are passed through the P11 decoder before any generation/UI claim.
+Implemented a model-independent sampler with greedy/argmax, local seeded PRNG sampling, temperature, top-k, top-p, repetition/presence/frequency penalties, tensor-logit extraction, EOS/length stopping, and explicit NaN/invalid-boundary failures. Sampling remains separate from decoder and tokenizer execution; no chat/generation claim is made from this chunk alone.
+
+Evidence:
+
+- source-verified: `Runtime/Sampler.lua` has no model-family or tokenizer branches and does not mutate global random state;
+- source-verified: rank-1/rank-2/rank-3 logits select the final vocabulary row generically;
+- host/reference verified: P13 tests cover greedy/top-k, penalties, tensor extraction, seeded determinism, EOS/length stopping, NaN, invalid top-p, and invalid temperature;
+- source-verified: bounded P13 probe and public sampler capability are available;
+- open native gate: sampled decoder output and sliced real-model responsiveness/cancellation remain unverified in stock PZ.
+
+## Exact Next Chunk — P14 Profiler / Performance Optimization
+
+Add bounded profiler instrumentation around scheduler steps, operators, tensor storage/access, decoder prefill/decode, tokenizer, and sampling. Measure node/kernel work, elapsed host/native time where available, packed-vs-boxed storage, allocation/cache behavior, and cancellation latency. Optimize only measured hotspots, preserve numerical references, and add responsiveness-oriented host tests/threshold reports without claiming native throughput.
 
 ## Following chunks
 
