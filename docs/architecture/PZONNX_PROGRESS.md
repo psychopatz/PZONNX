@@ -285,3 +285,17 @@ adapter in `media/lua/shared/PZONNX/Adapters/Chat.lua`.
   has no PZONNX load line. Do not claim the UI or real-model result as native
   PZ acceptance. The developer-side chunk is ready for a bounded stock Build
   42.20 live test.
+
+## Native feedback correction — P1 probe and Debug Hub visibility — 2026-10-23
+
+The first stock-PZ test exposed two integration issues. The native log showed
+P0A and P0B passing, then P1 failing because `P1Probe.lua` still expected the
+now-supported `Cast` operator to be unregistered. The stale expectation is now
+aligned with the host test and the current operator registry; this was a probe
+diagnostic defect, not evidence that the parser rejected the model.
+
+The screenshot also showed the Psychopatz **Debug Hub**, not the separate Core
+Command Hub. The client probe now registers in both hubs, retains the F8
+keybind, and emits `chat_ui=registered` so the next native log can distinguish
+client registration from shared-runtime startup. Native UI display and real
+model inference remain open until the corrected client is loaded and exercised.

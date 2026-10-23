@@ -31,8 +31,8 @@ function P1Probe.run()
     expect(attribute.name, "to", "attribute name")
     expect(attribute.type, 2, "attribute type")
     expect(attribute.payloadKind, "int", "attribute payload kind")
-    expect(attributeModel.compatibility.unsupported[1],
-        "operator is not registered: :Cast", "attribute fixture unsupported report")
+    expect(#attributeModel.compatibility.unsupported, 0,
+        "attribute fixture compatibility report")
 
     Log.info(
         "probe=P1 status=PASS path=" .. P1Probe.FIXTURE_PATH ..

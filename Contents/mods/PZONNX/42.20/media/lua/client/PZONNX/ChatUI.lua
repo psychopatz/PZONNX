@@ -1,6 +1,7 @@
 require "ISUI/ISRichTextPanel"
 require "PsychopatzCore/UI/PsychopatzUI"
 require "PsychopatzCore/UI/PsychopatzCommandHub"
+require "PsychopatzCore/UI/PsychopatzDebugHubWindow"
 require "PsychopatzCore/Input/PsychopatzKeybinds"
 
 local Core = PsychopatzCore
@@ -380,6 +381,21 @@ CommandHub.RegisterButton({
     },
 })
 
+local DebugHub = Core.DebugHub
+if DebugHub and DebugHub.RegisterTool then
+    DebugHub.RegisterTool({
+        id = "pzonxx.tinyLLMChat",
+        source = "PZONNX",
+        order = 10,
+        title = tr("UI_PZONNX_Chat_DebugTitle",
+            "PZONNX Tiny-LLM Chat Probe"),
+        description = tr("UI_PZONNX_Chat_DebugDescription",
+            "Open the in-game ONNX inference test window."),
+        available = function() return true end,
+        action = function() return PZONNXChatWindow.Open() end,
+    })
+end
+
 Core.Keybinds.RegisterPress({
     id = "PZONNX.ChatProbe.Toggle",
     defaultKey = "F8",
@@ -402,5 +418,9 @@ PZONNXChatUI = {
     Toggle = PZONNXChatWindow.Toggle,
     Window = PZONNXChatWindow,
 }
+
+if PZONNX.Log and PZONNX.Log.info then
+    PZONNX.Log.info("chat_ui=registered debug_hub=true keybind=F8")
+end
 
 return PZONNXChatUI

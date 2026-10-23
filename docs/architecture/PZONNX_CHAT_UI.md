@@ -13,6 +13,7 @@ configurable keybinds.
 
 - Press F8 by default; the key can be changed in the Core mod options.
 - Open the Core command hub and choose the PZONNX chat probe.
+- Open the Psychopatz Debug Hub and launch `PZONNX Tiny-LLM Chat Probe`.
 - The public client entry point is `PZONNXChatUI.Open()`.
 
 ## Model and input
