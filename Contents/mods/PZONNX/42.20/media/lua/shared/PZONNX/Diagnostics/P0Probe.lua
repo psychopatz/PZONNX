@@ -1,6 +1,6 @@
-local GameFile = require("PZONNX/IO/GameFile")
-local Wire = require("PZONNX/Protobuf/Wire")
-local Log = require("PZONNX/Diagnostics/Log")
+local GameFile = require "PZONNX/IO/GameFile"
+local Wire = require "PZONNX/Protobuf/Wire"
+local Log = require "PZONNX/Diagnostics/Log"
 
 local P0Probe = {}
 

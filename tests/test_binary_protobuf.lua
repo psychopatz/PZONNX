@@ -28,6 +28,23 @@ do
 end
 
 do
+    -- ONNX int64 metadata uses two's-complement protobuf varints. Dynamic
+    -- dimensions commonly encode -1 as ten bytes.
+    local reader = BinaryReader.new(fakeStream({
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xFF, 0xFF, 0xFF, 0xFF, 0x01,
+    }))
+    assertEqual(reader:readInt64(), -1, "signed int64 -1")
+end
+
+do
+    local reader = BinaryReader.new(fakeStream({
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    }))
+    assertEqual(reader:readInt64LE(), -1, "little-endian int64 -1")
+end
+
+do
     -- field 2, wire type 2
     local reader = BinaryReader.new(fakeStream({ 0x12 }))
     local fieldNumber, wireType = Wire.readTag(reader)

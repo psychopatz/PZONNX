@@ -1,0 +1,17 @@
+{
+  "fixture": "media/pzonnx/fixtures/p0b_minimal.onnx",
+  "format": "onnx.ModelProto",
+  "ir_version": 8,
+  "producer_name": "PZONNX",
+  "producer_version": "0.1.0",
+  "opset_imports": [
+    {
+      "domain": "",
+      "version": 13
+    }
+  ],
+  "graph_name": "pzonxx_p0b_graph",
+  "node_count": 1,
+  "input_count": 1,
+  "output_count": 1
+}

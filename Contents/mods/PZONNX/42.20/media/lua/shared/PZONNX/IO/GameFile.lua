@@ -1,4 +1,4 @@
-local BinaryReader = require("PZONNX/IO/BinaryReader")
+local BinaryReader = require "PZONNX/IO/BinaryReader"
 
 local GameFile = {}
 

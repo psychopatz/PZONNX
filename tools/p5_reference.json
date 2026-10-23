@@ -1,0 +1,26 @@
+{
+  "fixture": "media/pzonnx/fixtures/p5_tiny_lm.onnx",
+  "reference_runtime": "onnxruntime",
+  "operator_inventory": [
+    "Gather(axis=0)",
+    "MatMul",
+    "Add"
+  ],
+  "vocab_size": 3,
+  "hidden_size": 2,
+  "input_name": "token_ids",
+  "input_shape": [
+    1
+  ],
+  "input_values": [
+    1
+  ],
+  "output_name": "logits",
+  "expected_values": [
+    0.6,
+    0.4,
+    -0.1
+  ],
+  "expected_token_id": 0,
+  "tolerance": 1e-06
+}

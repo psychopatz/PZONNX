@@ -1,0 +1,24 @@
+{
+  "fixture": "media/pzonnx/fixtures/p7_tiny_tts.onnx",
+  "reference_runtime": "onnxruntime",
+  "operator_inventory": [
+    "Gather",
+    "MatMul",
+    "Add"
+  ],
+  "input_name": "token_ids",
+  "input_shape": [
+    1
+  ],
+  "input_values": [
+    1
+  ],
+  "output_name": "pcm",
+  "expected_values": [
+    0.5,
+    -0.15,
+    0.32,
+    0.3
+  ],
+  "tolerance": 1e-06
+}

@@ -1,0 +1,25 @@
+{
+  "fixture": "media/pzonnx/fixtures/p4_tiny_attention.onnx",
+  "reference_runtime": "onnxruntime",
+  "operator_inventory": [
+    "MatMul",
+    "Softmax(axis=1)",
+    "MatMul",
+    "Add"
+  ],
+  "input_name": "hidden",
+  "input_shape": [
+    1,
+    2
+  ],
+  "input_values": [
+    1.0,
+    -1.0
+  ],
+  "output_name": "logits",
+  "expected_values": [
+    1.9807970779778825,
+    1.0192029220221175
+  ],
+  "tolerance": 1e-06
+}

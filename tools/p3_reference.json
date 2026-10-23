@@ -1,0 +1,19 @@
+{
+  "fixture": "media/pzonnx/fixtures/p3_broadcast.onnx",
+  "reference_runtime": "onnxruntime",
+  "input_name": "input",
+  "input_shape": [
+    1,
+    2
+  ],
+  "input_values": [
+    3.0,
+    4.0
+  ],
+  "output_name": "output",
+  "expected_values": [
+    3.5,
+    3.5
+  ],
+  "tolerance": 1e-06
+}

@@ -1,0 +1,56 @@
+{
+  "fixture": "media/pzonnx/fixtures/p1_attribute.onnx",
+  "format": "onnx.ModelProto",
+  "ir_version": 8,
+  "producer_name": "PZONNX",
+  "producer_version": "0.1.0",
+  "opset_imports": [
+    {
+      "domain": "",
+      "version": 13
+    }
+  ],
+  "graph_name": "pzonxx_p1_attribute_graph",
+  "nodes": [
+    {
+      "inputs": [
+        "input"
+      ],
+      "outputs": [
+        "output"
+      ],
+      "name": "cast_node",
+      "op_type": "Cast",
+      "domain": "",
+      "attribute_count": 1,
+      "attributes": [
+        {
+          "name": "to",
+          "type": 2,
+          "payload_kind": "int"
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "name": "input",
+      "kind": "tensor",
+      "elem_type": 1,
+      "dims": [
+        1
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "output",
+      "kind": "tensor",
+      "elem_type": 1,
+      "dims": [
+        1
+      ]
+    }
+  ],
+  "initializers": []
+}

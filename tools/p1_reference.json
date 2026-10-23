@@ -1,0 +1,87 @@
+{
+  "fixture": "media/pzonnx/fixtures/p1_metadata.onnx",
+  "format": "onnx.ModelProto",
+  "ir_version": 8,
+  "producer_name": "PZONNX",
+  "producer_version": "0.1.0",
+  "opset_imports": [
+    {
+      "domain": "",
+      "version": 13
+    }
+  ],
+  "graph_name": "pzonxx_p1_graph",
+  "nodes": [
+    {
+      "inputs": [
+        "input",
+        "weight"
+      ],
+      "outputs": [
+        "output"
+      ],
+      "name": "add_node",
+      "op_type": "Add",
+      "domain": "",
+      "attribute_count": 0,
+      "attributes": []
+    }
+  ],
+  "inputs": [
+    {
+      "name": "input",
+      "kind": "tensor",
+      "elem_type": 1,
+      "dims": [
+        1
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "output",
+      "kind": "tensor",
+      "elem_type": 1,
+      "dims": [
+        1
+      ]
+    }
+  ],
+  "initializers": [
+    {
+      "name": "weight",
+      "dims": [
+        1
+      ],
+      "data_type": 1,
+      "raw_data_relative_offset": 15,
+      "raw_data_length": 4,
+      "data_location": 0,
+      "external_data": []
+    },
+    {
+      "name": "external_weight",
+      "dims": [
+        1
+      ],
+      "data_type": 1,
+      "raw_data_relative_offset": null,
+      "raw_data_length": 0,
+      "data_location": 1,
+      "external_data": [
+        {
+          "key": "location",
+          "value": "p1_external_weights.bin"
+        },
+        {
+          "key": "offset",
+          "value": "0"
+        },
+        {
+          "key": "length",
+          "value": "4"
+        }
+      ]
+    }
+  ]
+}
