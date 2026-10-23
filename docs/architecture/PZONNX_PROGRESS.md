@@ -140,9 +140,21 @@ Evidence:
 - source-verified: bounded `P9CProbe` reports registered-profile availability without parsing every model at startup;
 - open native gate: explicit user-model profile parsing and sliced real-model responsiveness/cancellation still require stock-PZ evidence.
 
-## Exact Next Chunk — P9D Generic Model Probe
+## Completed Developer Chunk — P9D Generic Model Probe — 2026-10-23
 
-Implement a reusable compatibility probe accepting any registered `ModelPackage` and emitting parse result, `ModelProfile`, opsets/operators/datatypes, external-data requirements, tokenizer status, generation-contract status, execution gaps, and optional bounded forward-pass evidence. Keep model parsing/profile inspection explicit and bounded; do not turn the probe into a startup sweep. TinyLLM remains one regression input only.
+Implemented an explicit generic compatibility probe over any registered package. It reports parse/profile status, opsets, operators, datatypes, external-data diagnostics, tokenizer status, generation-contract gaps, compatibility/execution gaps, and optional caller-supplied bounded forward-pass evidence. Startup only reports availability and never sweeps or parses user models. TinyLLM remains a regression input rather than a probe branch.
+
+Evidence:
+
+- source-verified: `Models/ModelProbe.lua` is package/profile driven and contains no model-family conditionals;
+- source-verified: parse failures are structured, generation readiness is reported as a contract status, and missing KV/tokenizer/role evidence remains an explicit gap;
+- host/reference verified: P9D tests cover incomplete and complete contract reports, compatibility aggregation, opt-in forward evidence, and parse failure preservation;
+- source-verified: bounded `P9DProbe` is lazy and startup-safe;
+- open native gate: generic probing of a user-supplied package and sliced real-model responsiveness/cancellation remain unverified in stock PZ.
+
+## Exact Next Chunk — P10 ONNX Compliance / External Data / Opset / Datatype Expansion
+
+Extend the generic loading boundary for user packages: resolve validated external tensor data through `ModelPackage`, support the required ONNX external-data metadata and bounded reads, expand opset/domain/version and datatype validation from the current regression subset, and fail unsupported behavior explicitly. Add fixtures/reference checks and bounded tests. Preserve lazy model loading and never materialize large weights into boxed Lua scalar tables.
 
 ## Following chunks
 

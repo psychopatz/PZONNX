@@ -363,6 +363,10 @@ function ModelProfile.inspect(modelPackage)
     local profile = {
         packageId = modelPackage.id,
         modelPath = modelPackage.modelPath,
+        irVersion = model.irVersion,
+        producerName = model.producerName,
+        producerVersion = model.producerVersion,
+        opsets = {},
         modelFiles = {
             primary = modelPackage.fullModelPath,
         },
@@ -400,6 +404,12 @@ function ModelProfile.inspect(modelPackage)
     graphEvidence(model, profile)
     tokenizerEvidence(modelPackage, profile)
     externalDataEvidence(modelPackage, model, profile)
+    for _, opset in ipairs(model.opsetImports) do
+        table.insert(profile.opsets, {
+            domain = opset.domain,
+            version = opset.version,
+        })
+    end
 
     if profile.task == nil then table.insert(profile.unknown, "task") end
     if profile.architecture == nil then table.insert(profile.unknown, "architecture") end
