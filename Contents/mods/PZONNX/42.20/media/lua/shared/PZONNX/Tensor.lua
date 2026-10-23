@@ -270,7 +270,7 @@ function Tensor.quantizeInt8(value, scale)
     assert(Tensor.isTensor(value), "PZONNX quantization requires a tensor")
     assert(type(scale) == "number" and scale > 0, "PZONNX int8 scale must be positive")
     local values = {}
-    for i = 1, #value.data do
+    for i = 1, value:elementCount() do
         local source = Tensor.valueAt(value, i)
         local scaled = source / scale
         local rounded = scaled >= 0 and math.floor(scaled + 0.5) or math.ceil(scaled - 0.5)
@@ -698,7 +698,9 @@ local function matmulGeneric(left, right, integerMode, leftZeroPoint, rightZeroP
     local leftM = leftRank == 1 and 1 or left.shape[leftRank - 1]
     local rightK = rightRank == 1 and right.shape[1] or right.shape[rightRank - 1]
     local rightN = rightRank == 1 and 1 or right.shape[rightRank]
-    if leftK ~= rightK then error("PZONNX MatMul shared dimension mismatch") end
+    if leftK ~= rightK then
+        error("PZONNX MatMul shape mismatch: shared dimension mismatch")
+    end
 
     local leftBatch = {}
     for i = 1, leftRank - 2 do leftBatch[#leftBatch + 1] = left.shape[i] end

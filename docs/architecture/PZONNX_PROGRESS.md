@@ -220,14 +220,33 @@ artifact was kept in `/tmp`, not packaged or published.
 - Host Lua streaming `BinaryReader` + `Model.parseReader` passed on the genuine
   ModelProto: IR 8, graph `main_graph`, 408 nodes, 30 initializers, 5 inputs,
   3 outputs, and 375 value-info entries.
-- The parser now decodes representable signed ONNX `int64` dimensions and
-  attribute values (including dynamic `-1`) without expanding the model into a
-  retained byte table; values outside Lua's exact integer range still fail.
-- A real `Session:newJob({})` attempt reached `InferenceJob` and failed
-  explicitly at the first unsupported operator, `:Constant`. The model has
-  372 compatibility findings, including `Constant`, `MatMulInteger`,
-  `DequantizeLinear`, `DynamicQuantizeLinear`, `RMS`-building arithmetic and
-  shape/control-flow operators. No inference output is claimed.
-- This is host/reference evidence only. The PZ native gates remain open, and
-  this probe does not change the required handoff state: **READY FOR USER LIVE
-  TEST**.
+- A bounded `Session:newJob()` executed all 408 nodes using packed initializer
+  storage. The job completed with `state=completed`, `cursor=409`, and
+  `work=408`; no native library, JNI, Python runtime, server, or companion
+  process was used by the Lua execution.
+- With `input_ids=[[1]]`, `attention_mask=[[1]]`, `position_ids=[[0]]`, and
+  empty layer-0 KV inputs, Lua produced token index `9309` (zero-based),
+  `max(logits)=11.559551055381`, and logits beginning
+  `9.3276447538538,9.4631352458317,1.989958994424`.
+- A development-time explicit int32 reference graph, rewriting each
+  `MatMulInteger` as centered int32 `Cast`/`Sub`/`MatMul`, produced the same
+  token index and logits within approximately `1e-6`; the first five present
+  key/value elements also matched within float32 rounding. This is the
+  numerical reference used for the result because it directly exercises the
+  ONNX operator semantics.
+- The installed ONNX Runtime CPU provider's original mixed uint8/int8
+  `MatMulInteger` path differed in two projection elements and consequently
+  reported `max(logits)=11.401731491089`, although it selected the same token
+  index `9309`. That provider discrepancy is retained as evidence, not treated
+  as Lua acceptance evidence.
+
+This is host/reference evidence only. It proves the current runtime can execute
+this real tiny-LLM export in host Lua, but it is not Project Zomboid runtime
+acceptance. The accumulated native PZ gates remain open and the required
+handoff state is still **READY FOR USER LIVE TEST**.
+
+The follow-up regression pass also fixed packed-initializer quantization,
+preserved the stable MatMul shape-mismatch diagnostic, and updated the Cast
+compatibility expectation. All `tests/test_*.lua` tests now pass, Kahlua
+verification reports zero errors, and the graph index has no recorded parse or
+coverage gaps for the changed runtime/test files.

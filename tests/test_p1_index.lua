@@ -57,7 +57,7 @@ do
     assertEqual(attribute.name, "to", "attribute name")
     assertEqual(attribute.type, 2, "attribute type")
     assertEqual(attribute.payloadKind, "int", "attribute payload kind")
-    assertEqual(#attributeModel.compatibility.unsupported, 1, "attribute compatibility count")
+    assertEqual(#attributeModel.compatibility.unsupported, 0, "attribute compatibility count")
 end
 
 do
