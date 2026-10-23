@@ -250,3 +250,38 @@ preserved the stable MatMul shape-mismatch diagnostic, and updated the Cast
 compatibility expectation. All `tests/test_*.lua` tests now pass, Kahlua
 verification reports zero errors, and the graph index has no recorded parse or
 coverage gaps for the changed runtime/test files.
+
+## Developer chunk — in-game Core chatbot probe UI — 2026-10-23
+
+Implemented a bounded client-side test harness in
+`media/lua/client/PZONNX/ChatUI.lua` and the model-specific input/output
+adapter in `media/lua/shared/PZONNX/Adapters/Chat.lua`.
+
+- **source-verified:** `mod.info` requires `PsychopatzCore`; the UI explicitly
+  requires Core's shared UI, command hub, and keybind modules, then derives
+  from `UI.Window` and uses Core controls/layout/theme APIs.
+- **source-verified:** F8 toggle and Core command-hub action open one persistent
+  `PZONNX Tiny-LLM Chat Probe` window; model path, token IDs, prompt label,
+  load/run/clear controls, transcript, and status are visible in-game.
+- **source-verified:** the default path is
+  `media/pzonnx/models/tiny_llm/model_int8.onnx`; no runtime network/tokenizer
+  dependency is introduced. Unsupported model compatibility, malformed token
+  IDs, invalid cache shapes, invalid output shapes, and job failures fail
+  explicitly in the panel.
+- **source-verified:** inference is cooperative (`InferenceJob:step(4)` per
+  `OnTick`) and the adapter keeps weights lazy/packed through the existing
+  session path.
+- **host/reference verified:** `tests/test_chat_adapter.lua` passes on the
+  bundled P5 fixture; the same adapter was run against the linked real model
+  with profile `decoder-cache`, `sequenceLength=1`, `cacheCount=2`, 408
+  completed nodes, token ID `9309`, and logit `11.559551055381`.
+- **local test asset:** the linked model is copied to the ignored local path
+  used by the UI; it is not committed or published to Steam Workshop. SHA-256
+  is `33c4f02ff02d3c997d76f190ecbe1d6e88307182a4d7caf8be49db1ded60839b`.
+- **validation:** all `tests/test_*.lua` tests pass; `luac -p`, `git diff
+  --check`, and Kahlua verification pass with zero errors.
+- **open native gate:** this session could not access the running Linux PZ
+  process through the computer-use connector, and the current `console.txt`
+  has no PZONNX load line. Do not claim the UI or real-model result as native
+  PZ acceptance. The developer-side chunk is ready for a bounded stock Build
+  42.20 live test.
