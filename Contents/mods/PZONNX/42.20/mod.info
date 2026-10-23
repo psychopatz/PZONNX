@@ -1,0 +1,7 @@
+name=PZONNX
+id=PZONNX
+description=Experimental pure-Kahlua ONNX inference runtime for Project Zomboid Build 42.
+author=Psychopatz
+category=framework
+version=0.0.1
+versionMin=42.20
