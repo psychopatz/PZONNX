@@ -1,76 +1,95 @@
 # PZONNX Progress
 
-Last reconciled: P0A packaged binary probe implementation.
+Last reconciled: goal-documentation hardening after P0A source implementation.
 
-## Current phase
+## Parent goal
+
+Build the complete experimental pure-Kahlua ONNX runtime through the approved real-ONNX, graph execution, tiny-LLM, resumable/quantized inference, TTS, and integration milestones.
+
+Parent state: **IN PROGRESS**.
+
+## Current major phase
 
 **P0 — Binary and protobuf foundation**
 
-State: IN PROGRESS.
+Developer state: **P0A source implementation complete; P0B is the next developer-side chunk.**
 
-## Verified foundation
+Native acceptance state: **P0A PZ runtime gate OPEN / UNVERIFIED.**
 
-- Repository exists and is writable.
-- Project identity is PZONNX.
-- Build target is Project Zomboid 42.20.
-- Runtime constraint is pure supported Lua/Kahlua; development-time external reference tooling is allowed.
-- Current Project Zomboid API documentation exposes `getGameFilesInput(String)` returning `DataInputStream`; `getFileInput(String)` is documented as Lua-cache input and is not the selected packaged-asset path.
+## Source-verified foundation
 
-## Implemented in source
-
-- Build 42.20 mod descriptor.
-- Lua bootstrap/diagnostics module.
-- byte reader primitives for DataInputStream-like objects exposed to Lua;
-- protobuf wire tag/skip primitives;
-- float32 little-endian decode without native bit operators;
+- Build 42.20 mod descriptor and shared bootstrap.
+- byte reader with offsets and protobuf varint support;
+- fixed32 and pure-Lua float32 decoding;
+- protobuf wire tag/length/skip primitives;
 - deterministic 16-byte packaged protobuf fixture;
-- reproducible development-time fixture generator;
-- `getGameFilesInput` adapter behind the IO boundary;
-- P0A runtime probe scheduled at `OnGameStart`;
-- host-style fake-stream smoke vectors including the complete P0 fixture.
+- reproducible fixture generator;
+- game-file adapter using `getGameFilesInput`;
+- bounded P0A diagnostic probe scheduled for game start;
+- host-style fake-stream smoke vectors.
 
-## Evidence status
+## Open evidence
 
-Source-verified:
+Not yet independently host-run in the current ChatGPT execution environment:
 
-- repository contents and fixture bytes;
-- P0A parser/probe implementation.
-
-Not independently host-run in the current ChatGPT execution environment:
-
-- no Lua/LuaJIT interpreter is available in the local execution container.
+- repository smoke Lua test, because that environment has no Lua/LuaJIT interpreter.
 
 Not yet PZ-runtime verified:
 
-- whether `media/pzonnx/fixtures/p0_probe.pb` resolves through the Build 42.20 mod virtual filesystem exactly as assumed;
-- DataInputStream method bridging in the live game;
-- expected P0A PASS log.
+- packaged fixture virtual path resolution;
+- DataInputStream method bridging;
+- expected P0A PASS line.
 
-## Next Chunk — P0A runtime acceptance
-
-1. Install/enable the mod in Build 42.20.
-2. Start a game and capture the PZONNX P0A diagnostic line.
-3. If path or Java-method bridging fails, fix only the IO boundary and rerun.
-4. Preserve the exact runtime evidence in this ledger.
-5. After P0A passes, begin P0B with a genuine minimal ONNX fixture.
-
-Expected success evidence:
+Expected P0A native success evidence:
 
 ```text
 [PZONNX] INFO probe=P0A status=PASS path=media/pzonnx/fixtures/p0_probe.pb bytes=16 varint=150 text=PZONNX float32=1.0
 ```
 
-## Phase exit
+These remain mandatory acceptance items but are not a reason to stop developer-side implementation.
 
-P0 exits only when a genuine ONNX file is read through the supported game path and its top-level protobuf structure is correctly identified.
+## Exact Next Chunk — P0B developer implementation
+
+Implement a **genuine minimal ONNX top-level parsing proof**.
+
+Required work:
+
+1. add development tooling that generates a real minimal `.onnx` fixture;
+2. record trusted reference metadata for that exact fixture;
+3. implement only the ModelProto/opset/graph-envelope protobuf fields required to identify:
+   - IR version;
+   - producer name/version when present;
+   - opset imports;
+   - graph name/envelope;
+4. keep unknown-field skipping and truncation errors explicit;
+5. add focused reference tests that prove PZONNX sees the same top-level metadata as the trusted inspector;
+6. package the real ONNX fixture for the mod;
+7. add a bounded PZ diagnostic probe for the real ONNX fixture;
+8. preserve P0A as an open native gate unless actual PZ evidence is obtained.
+
+Do **not** implement MatMul, tensor execution, or transformer-specific logic in this chunk.
+
+## Following chunk
+
+After P0B developer acceptance, proceed directly into **P1 model loading/indexing** even if native P0A/P0B evidence is still open, provided no runtime fact blocks safe implementation.
 
 ## Evidence labels
 
-Use these labels in future updates:
+Use:
 
 - source-verified;
-- host-test verified;
+- host/reference verified;
 - PZ runtime verified;
-- reference-runtime verified;
+- real-model verified;
+- adopter verified;
+- open native gate;
 - partial;
 - unsupported/unproven.
+
+## Final handoff rule
+
+If all developer-implementable mandatory work is complete and only user-owned native verification remains, report:
+
+**READY FOR USER LIVE TEST**
+
+Do not report COMPLETED or BLOCKED in that state.
