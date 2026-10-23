@@ -215,9 +215,33 @@ Evidence:
 - PZ Java source-verified: `getTimestampMs` is a supported global Lua method backed by `System.currentTimeMillis()`;
 - open native gate: real timing/cancellation responsiveness and sliced model throughput remain unverified in stock PZ.
 
-## Exact Next Chunk — P15 Multi-Family Compatibility
+## Completed Developer Chunk — P15 Structural Compatibility Matrix — 2026-10-23
 
-Use the generic store/package/profile/probe/decoder/sampler path against at least one structurally different decoder export in addition to TinyLLM. Add model-agnostic compatibility fixtures and reference metadata, ensure no family-name execution branches are required, and report unsupported contract/operator/tokenizer gaps explicitly. Keep the native real-model responsiveness gate open.
+Added a model-name-independent compatibility matrix over generic probe reports. It derives structural signatures from roles, operators, tensor ranks, cache cardinality, and tokenizer status; aggregates compatible and incomplete packages; and reports unsupported contract gaps without introducing family-specific execution branches. A bounded P15 probe and public matrix API are available, while the diagnostic and runtime status remain honest about the open real-family gate.
+
+Evidence:
+
+- source-verified: `Models/CompatibilityMatrix.lua` contains no TinyLLM/Llama/Qwen or model-name dispatch and reports parse/profile/generation/execution gaps explicitly;
+- host/reference verified: P15 tests cover three structurally distinct reports, two compatible signatures, and one incomplete/unsupported report;
+- source-verified: public compatibility assessment/comparison and the bounded P15 probe are registered;
+- validation: PZ Kahlua verification reports 0 errors and 0 warnings for 48 scanned files; focused P12, P13, P14, and P15 host tests pass;
+- partial: the repository still contains only one real decoder export, so P15 acceptance requiring two distinct real decoder families with reference-consistent generation remains open;
+- open native gates: real-family generation, user-package tokenizer/profile loading, and sliced real-model responsiveness/cancellation remain unverified in stock PZ.
+
+## Completed Developer Chunk — P16 Generic Generation API Core — 2026-10-23
+
+Implemented the first real text-generation API layer over the accepted P11 tokenizer, P12 resumable decoder/KV contract, and P13 sampler. `Runtime/Generator.lua` performs tokenizer-driven prefill, samples decoder logits, advances one-token decode steps, decodes generated IDs back to text, enforces EOS/length stopping, exposes bounded cooperative stepping, and supports cancellation/reset. It is dependency-injected and model-profile-driven; no family-name execution branches were added. This is a host-verified API core, not a native chat acceptance claim yet.
+
+Evidence:
+
+- source-verified: `Generator` consumes only Decoder/Tokenizer/Sampler contracts and returns explicit phase, progress, text, token, stopping, and cancellation state;
+- source-verified: `PZONNX.newGeneratorForEntry()` loads a ledger-backed package, profile, model, session, decoder, tokenizer, and sampler through the generic path; `generateText()` is available for bounded host/reference use;
+- host/reference verified: P16 tests cover prefill sampling, repeated decode, generated-text decoding, max-token stopping, zero-length stopping, and cancellation;
+- open native gates: live user-package generation, game-thread responsiveness/cancellation, and the P16 Core-backed chat surface remain unverified in stock PZ.
+
+## Exact Next Chunk — P16 Core-Backed Generative Chat Surface
+
+Extend the existing Core-backed diagnostic window with a distinct ledger-backed generative mode. Preserve the numeric forward-pass probe, add model refresh/selection and prompt controls, drive `Generator:step()` cooperatively with visible progress/cancel state, and display decoded assistant text only when the generic tokenizer/decoder/sampler contracts are actually ready. Keep packaged TinyLLM paths as diagnostic regression assets rather than the user model architecture.
 
 ## Following chunks
 

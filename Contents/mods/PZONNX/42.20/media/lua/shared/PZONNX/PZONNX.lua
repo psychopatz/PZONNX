@@ -18,6 +18,7 @@ local P11Probe = require "PZONNX/Diagnostics/P11Probe"
 local P12Probe = require "PZONNX/Diagnostics/P12Probe"
 local P13Probe = require "PZONNX/Diagnostics/P13Probe"
 local P14Probe = require "PZONNX/Diagnostics/P14Probe"
+local P15Probe = require "PZONNX/Diagnostics/P15Probe"
 local TinyTTS = require "PZONNX/Adapters/TinyTTS"
 local Model = require "PZONNX/ONNX/Model"
 local Session = require "PZONNX/Runtime/Session"
@@ -35,10 +36,12 @@ local Tokenizer = require "PZONNX/Models/Tokenizer"
 local Decoder = require "PZONNX/Runtime/Decoder"
 local Sampler = require "PZONNX/Runtime/Sampler"
 local Profiler = require "PZONNX/Runtime/Profiler"
+local CompatibilityMatrix = require "PZONNX/Models/CompatibilityMatrix"
+local Generator = require "PZONNX/Runtime/Generator"
 
 local PZONNX = {
     VERSION = "0.0.1",
-    PHASE = "P14",
+    PHASE = "P16",
     Log = Log,
 }
 
@@ -101,6 +104,10 @@ function PZONNX.getCapabilities()
         profiler = true,
         storageMetrics = true,
         p14Probe = true,
+        compatibilityMatrix = true,
+        p15Probe = true,
+        generator = true,
+        textGenerationAPI = true,
         p2Probe = true,
         llm = false,
         tts = false,
@@ -183,6 +190,10 @@ function PZONNX.runP14Probe()
     return P14Probe.run()
 end
 
+function PZONNX.runP15Probe()
+    return P15Probe.run()
+end
+
 function PZONNX.refreshModels()
     return ModelStore.refresh()
 end
@@ -245,8 +256,41 @@ function PZONNX.newSampler(options)
     return Sampler.new(options)
 end
 
+function PZONNX.newGenerator(decoder, tokenizer, sampler, options)
+    return Generator.new(decoder, tokenizer, sampler, options)
+end
+
+function PZONNX.newGeneratorForEntry(idOrPath, options)
+    options = options or {}
+    local modelPackage, reason = ModelPackage.forEntry(idOrPath)
+    if modelPackage == nil then
+        error("PZONNX could not load generator package: " .. tostring(reason))
+    end
+    local profile = ModelProfile.inspect(modelPackage)
+    local model = Model.loadPackage(modelPackage)
+    local session = Session.new(model, options)
+    local decoder = Decoder.new(session, profile, options)
+    local tokenizer = Tokenizer.fromPackage(modelPackage, profile, options.profiler)
+    local sampler = Sampler.new(options.samplerOptions or options)
+    return Generator.new(decoder, tokenizer, sampler, options)
+end
+
+function PZONNX.generateText(idOrPath, prompt, options)
+    options = options or {}
+    local generator = PZONNX.newGeneratorForEntry(idOrPath, options)
+    return generator:run(prompt, options.budget or 1, options.stepLimit)
+end
+
 function PZONNX.newProfiler(options)
     return Profiler.new(options)
+end
+
+function PZONNX.assessCompatibility(report)
+    return CompatibilityMatrix.assess(report)
+end
+
+function PZONNX.compareCompatibility(reports)
+    return CompatibilityMatrix.compare(reports)
 end
 
 function PZONNX.loadModel(relativePath)
@@ -304,6 +348,7 @@ function PZONNX.getRuntimeStatus()
             P12 = "OPEN/UNVERIFIED",
             P13 = "OPEN/UNVERIFIED",
             P14 = "OPEN/UNVERIFIED",
+            P15 = "PARTIAL/REAL_FAMILIES_OPEN",
         },
     }
 end
@@ -324,5 +369,7 @@ PZONNX.Tokenizer = Tokenizer
 PZONNX.Decoder = Decoder
 PZONNX.Sampler = Sampler
 PZONNX.Profiler = Profiler
+PZONNX.CompatibilityMatrix = CompatibilityMatrix
+PZONNX.Generator = Generator
 
 return PZONNX

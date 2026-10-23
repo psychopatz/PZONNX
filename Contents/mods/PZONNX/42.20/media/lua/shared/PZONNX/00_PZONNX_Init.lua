@@ -135,6 +135,13 @@ local function runP14ProbeSafely()
     end
 end
 
+local function runP15ProbeSafely()
+    local ok, result = pcall(PZONNX.runP15Probe)
+    if not ok then
+        PZONNX.Log.warn("probe=P15 status=FAIL error=" .. tostring(result))
+    end
+end
+
 if Events ~= nil and Events.OnGameStart ~= nil then
     Events.OnGameStart.Add(runP0ProbeSafely)
     Events.OnGameStart.Add(runP0BProbeSafely)
@@ -155,6 +162,7 @@ if Events ~= nil and Events.OnGameStart ~= nil then
     Events.OnGameStart.Add(runP12ProbeSafely)
     Events.OnGameStart.Add(runP13ProbeSafely)
     Events.OnGameStart.Add(runP14ProbeSafely)
+    Events.OnGameStart.Add(runP15ProbeSafely)
 else
     PZONNX.Log.warn("probe=P0A status=DEFERRED reason=OnGameStart_unavailable")
     PZONNX.Log.warn("probe=P0B status=DEFERRED reason=OnGameStart_unavailable")
@@ -175,4 +183,5 @@ else
     PZONNX.Log.warn("probe=P12 status=DEFERRED reason=OnGameStart_unavailable")
     PZONNX.Log.warn("probe=P13 status=DEFERRED reason=OnGameStart_unavailable")
     PZONNX.Log.warn("probe=P14 status=DEFERRED reason=OnGameStart_unavailable")
+    PZONNX.Log.warn("probe=P15 status=DEFERRED reason=OnGameStart_unavailable")
 end
