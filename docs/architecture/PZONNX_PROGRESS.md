@@ -255,9 +255,21 @@ Evidence:
 - open native gates: the Core-backed window, a live user package, readable native generation, and sliced real-model responsiveness/cancellation still require stock-PZ evidence;
 - partial: P15 still lacks a second real decoder family with reference-consistent generation, so the parent objective remains open.
 
-## Exact Next Chunk — P17 TTS / Pipeline Expansion
+## Completed Developer Chunk — P17 Model-Agnostic TTS / Pipeline Boundary — 2026-10-23
 
-Add the model-agnostic pipeline boundary for optional text-to-speech and caller-owned postprocessing. Preserve explicit capability negotiation, bounded scheduling, cancellation, and the distinction between generated text acceptance and optional audio acceptance. Keep the P15 real-family evidence gate and all native responsiveness gates open while developer-side TTS/pipeline work proceeds.
+Added an optional `Runtime/Pipeline.lua` boundary that composes the generic text generator with a caller-owned bounded TTS provider. Text-only generation remains unchanged; audio is opt-in and fails explicitly when no provider is attached. A provider must expose `begin(text, options)`, bounded `step(budget)`, and optional `cancel()`; audio output is kept separate from generated text and no TinyTTS/model-specific branch was added. The P17 probe and public pipeline constructors are available.
+
+Evidence:
+
+- source-verified: pipeline scheduling, cancellation, reset, text/audio result separation, and missing-provider errors are generic and pure Kahlua;
+- source-verified: `newPipelineForEntry()` composes the existing ledger-backed generator with caller-owned TTS without coupling the LLM runtime to a TTS family;
+- host/reference verified: P17 tests cover text-only output, bounded generation-to-audio transition, audio result shape, cancellation, and explicit missing-provider failure;
+- validation: all repository Lua host tests pass; PZ Kahlua verification reports 0 errors and 0 warnings across 52 scanned files;
+- partial/open: no selected real TTS pipeline is accepted, and P15 multi-family generation plus native package/responsiveness gates remain open.
+
+## Exact Next Chunk — P15 Real Multi-Family Evidence
+
+Continue the open P15 gate with at least one additional structurally distinct real decoder export and trusted reference vectors through the generic profile/tokenizer/generator path. If a compatible second family cannot be safely demonstrated from available development-time artifacts, preserve that smallest evidence gap while continuing native responsiveness and user-package verification work.
 
 ## Following chunks
 

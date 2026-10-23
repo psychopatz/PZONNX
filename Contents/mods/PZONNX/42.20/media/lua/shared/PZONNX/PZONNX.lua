@@ -19,6 +19,7 @@ local P12Probe = require "PZONNX/Diagnostics/P12Probe"
 local P13Probe = require "PZONNX/Diagnostics/P13Probe"
 local P14Probe = require "PZONNX/Diagnostics/P14Probe"
 local P15Probe = require "PZONNX/Diagnostics/P15Probe"
+local P17Probe = require "PZONNX/Diagnostics/P17Probe"
 local TinyTTS = require "PZONNX/Adapters/TinyTTS"
 local Model = require "PZONNX/ONNX/Model"
 local Session = require "PZONNX/Runtime/Session"
@@ -38,6 +39,7 @@ local Sampler = require "PZONNX/Runtime/Sampler"
 local Profiler = require "PZONNX/Runtime/Profiler"
 local CompatibilityMatrix = require "PZONNX/Models/CompatibilityMatrix"
 local Generator = require "PZONNX/Runtime/Generator"
+local Pipeline = require "PZONNX/Runtime/Pipeline"
 
 local PZONNX = {
     VERSION = "0.0.1",
@@ -108,6 +110,9 @@ function PZONNX.getCapabilities()
         p15Probe = true,
         generator = true,
         textGenerationAPI = true,
+        pipeline = true,
+        ttsPipelineBoundary = true,
+        p17Probe = true,
         p2Probe = true,
         llm = false,
         tts = false,
@@ -192,6 +197,10 @@ end
 
 function PZONNX.runP15Probe()
     return P15Probe.run()
+end
+
+function PZONNX.runP17Probe()
+    return P17Probe.run()
 end
 
 function PZONNX.refreshModels()
@@ -279,6 +288,15 @@ function PZONNX.generateText(idOrPath, prompt, options)
     options = options or {}
     local generator = PZONNX.newGeneratorForEntry(idOrPath, options)
     return generator:run(prompt, options.budget or 1, options.stepLimit)
+end
+
+function PZONNX.newPipeline(generator, options)
+    return Pipeline.new(generator, options)
+end
+
+function PZONNX.newPipelineForEntry(idOrPath, options)
+    options = options or {}
+    return Pipeline.new(PZONNX.newGeneratorForEntry(idOrPath, options), options)
 end
 
 function PZONNX.newProfiler(options)
@@ -371,5 +389,6 @@ PZONNX.Sampler = Sampler
 PZONNX.Profiler = Profiler
 PZONNX.CompatibilityMatrix = CompatibilityMatrix
 PZONNX.Generator = Generator
+PZONNX.Pipeline = Pipeline
 
 return PZONNX
