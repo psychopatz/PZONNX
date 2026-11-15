@@ -346,7 +346,7 @@ function PZONNXChatWindow.Open()
         return window
     end
     window = UI.NewWindow(PZONNXChatWindow, {
-        title = tr("UI_PZONNX_Chat_Title", "PZONNX Tiny-LLM Chat Probe"),
+        title = tr("UI_PZONNX_Chat_Title", "Tiny-LLM Chat Probe"),
         resizable = true,
         persistenceNamespace = "PZONNX",
         persistenceKey = "ChatProbe",
@@ -416,7 +416,7 @@ if DebugHub and DebugHub.RegisterTool then
         source = "PZONNX",
         order = 10,
         title = tr("UI_PZONNX_Chat_DebugTitle",
-            "PZONNX Tiny-LLM Chat Probe"),
+            "Tiny-LLM Chat Probe"),
         description = tr("UI_PZONNX_Chat_DebugDescription",
             "Open the in-game ONNX inference test window."),
         available = function() return true end,
@@ -429,7 +429,7 @@ Core.Keybinds.RegisterPress({
     defaultKey = "F8",
     label = tr("UI_PZONNX_Chat_Keybind", "Toggle PZONNX chat probe"),
     tooltip = tr("UI_PZONNX_Chat_KeybindTooltip",
-        "Open or close the PZONNX Tiny-LLM test window."),
+        "Open or close the Tiny-LLM test window."),
     onTrigger = PZONNXChatWindow.Toggle,
 })
 

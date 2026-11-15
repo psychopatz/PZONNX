@@ -297,7 +297,7 @@ function PZONNXGenerationWindow.Open()
         return window
     end
     window = UI.NewWindow(PZONNXGenerationWindow, {
-        title = tr("UI_PZONNX_Generation_Title", "PZONNX Generative Chat"),
+        title = tr("UI_PZONNX_Generation_Title", "Text Generation Console"),
         resizable = true,
         persistenceNamespace = "PZONNX",
         persistenceKey = "GenerationChat",
@@ -349,7 +349,7 @@ if DebugHub and DebugHub.RegisterTool then
         id = "pzonxx.generativeChat",
         source = "PZONNX",
         order = 20,
-        title = tr("UI_PZONNX_Generation_DebugTitle", "PZONNX Generative Chat"),
+        title = tr("UI_PZONNX_Generation_DebugTitle", "Text Generation Console"),
         description = tr("UI_PZONNX_Generation_DebugDescription",
             "Open the ledger-backed PZONNX text generation window."),
         available = function() return true end,
