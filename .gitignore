@@ -11,6 +11,16 @@ __pycache__/
 artifacts/
 models/
 
+# Local tooling and databases
+.architecture-refactor/
+.codebase-memory/
+:memory:.ses
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.log
+
 # OS noise
 .DS_Store
 Thumbs.db
